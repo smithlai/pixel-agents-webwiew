@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { AgentStatusPanel } from './components/AgentStatusPanel.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
 import { DebugView } from './components/DebugView.js';
 import { ZoomControls } from './components/ZoomControls.js';
@@ -154,7 +155,7 @@ function App() {
   const showMigrationNotice = layoutWasReset && !migrationNoticeDismissed;
 
   const [isDebugMode, setIsDebugMode] = useState(false);
-  const [alwaysShowOverlay, setAlwaysShowOverlay] = useState(false);
+  const [alwaysShowOverlay, setAlwaysShowOverlay] = useState(isBrowserRuntime);
 
   const handleToggleDebugMode = useCallback(() => setIsDebugMode((prev) => !prev), []);
   const handleToggleAlwaysShowOverlay = useCallback(
@@ -234,10 +235,13 @@ function App() {
     );
   }
 
+  const showSidePanel = !isDebugMode && !editor.isEditMode;
+
   return (
+    <div style={{ width: '100%', height: '100%', display: 'flex', overflow: 'hidden' }}>
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}
+      style={{ flex: 1, height: '100%', position: 'relative', overflow: 'hidden', minWidth: 0 }}
     >
       <style>{`
         @keyframes pixel-agents-pulse {
@@ -432,6 +436,16 @@ function App() {
           </div>
         </div>
       )}
+    </div>
+
+    {showSidePanel && (
+      <AgentStatusPanel
+        officeState={officeState}
+        agents={agents}
+        agentTools={agentTools}
+        subagentCharacters={subagentCharacters}
+      />
+    )}
     </div>
   );
 }

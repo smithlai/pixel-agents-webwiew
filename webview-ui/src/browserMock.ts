@@ -243,6 +243,167 @@ export async function initBrowserMock(): Promise<void> {
   );
 }
 
+// ── Mock test session simulation ─────────────────────────────────────────────
+
+/** Helper: dispatch a sequence of timed events to simulate a MobileGoose test run. */
+function scheduleMockTestSession(dispatch: (data: unknown) => void): void {
+  // Timeline helper — accumulates delay so steps are sequential
+  let cursor = 0;
+  function after(ms: number, fn: () => void): void {
+    cursor += ms;
+    setTimeout(fn, cursor);
+  }
+
+  // Swap tool status for a given agent (done old → start new)
+  function swapTool(id: number, oldToolId: string, newToolId: string, status: string): void {
+    dispatch({ type: 'agentToolDone', id, toolId: oldToolId });
+    dispatch({ type: 'agentToolStart', id, toolId: newToolId, status });
+  }
+
+  const PM_ID = 101;
+  const ANALYST_ID = 102;
+  const TESTER_ID = 103;
+
+  // Helper: make agent go idle (stand up, wander) while keeping overlay text
+  function goIdle(id: number, toolId: string): void {
+    dispatch({ type: 'agentToolDone', id, toolId });
+    dispatch({ type: 'agentToolsClear', id });
+    dispatch({ type: 'agentStatus', id, status: 'idle' });
+  }
+
+  // Helper: make agent active (walk back to seat, sit down, start tool)
+  function goWork(id: number, toolId: string, status: string): void {
+    dispatch({ type: 'agentStatus', id, status: 'active' });
+    dispatch({ type: 'agentToolStart', id, toolId, status });
+  }
+
+  // ── PM reviews today's test plan ─────────────────────────────────────────────
+  after(2000, () => {
+    goWork(PM_ID, 'pm-plan', '審核今日測試計畫：STTL-181126 語言切換');
+  });
+
+  after(5000, () => {
+    swapTool(PM_ID, 'pm-plan', 'pm-assign', '指派任務給 Tester：驗證多語言切換功能');
+  });
+
+  after(3000, () => {
+    goIdle(PM_ID, 'pm-assign');
+  });
+
+  // ── Analyst starts background analysis ───────────────────────────────────────
+  after(1000, () => {
+    goWork(ANALYST_ID, 'analyst-read', '讀取歷史測試報告，分析失敗率趨勢');
+  });
+
+  after(6000, () => {
+    swapTool(ANALYST_ID, 'analyst-read', 'analyst-stats', '統計近 7 日通過率：92.3% → 生成趨勢圖');
+  });
+
+  after(5000, () => {
+    swapTool(ANALYST_ID, 'analyst-stats', 'analyst-report', '撰寫週報：語言切換模組穩定性分析');
+  });
+
+  // ── Tester receives task, reads test case ────────────────────────────────────
+  after(1000, () => {
+    goWork(TESTER_ID, 'tester-read', '收到任務，讀取測試案例 STTL-181126');
+  });
+
+  after(4000, () => {
+    swapTool(TESTER_ID, 'tester-read', 'tester-parse', '解析前置條件：裝置需為英文環境');
+  });
+
+  after(3000, () => {
+    swapTool(TESTER_ID, 'tester-parse', 'tester-plan', '規劃測試步驟：5 步驟自動化腳本');
+  });
+
+  // ── Tester dispatches DroidClaw (sub-agent) ──────────────────────────────────
+  after(4000, () => {
+    swapTool(TESTER_ID, 'tester-plan', 'tester-dc', '派出 DroidClaw 執行裝置操作');
+  });
+
+  const dcSteps = [
+    { id: 'dc-1', status: '操作裝置：點擊 Settings', delay: 4000 },
+    { id: 'dc-2', status: '操作裝置：點擊 System → Languages', delay: 3000 },
+    { id: 'dc-3', status: '操作裝置：點擊 Add a language', delay: 3500 },
+    { id: 'dc-4', status: '操作裝置：選擇 Français (法語)', delay: 3000 },
+    { id: 'dc-5', status: '操作裝置：確認語言切換完成', delay: 3500 },
+  ];
+
+  for (let i = 0; i < dcSteps.length; i++) {
+    const step = dcSteps[i];
+    const prev = i === 0 ? 'tester-dc' : dcSteps[i - 1].id;
+    after(step.delay, () => {
+      if (i === 0) {
+        dispatch({ type: 'agentToolStart', id: TESTER_ID, toolId: step.id, status: step.status });
+      } else {
+        swapTool(TESTER_ID, prev, step.id, step.status);
+      }
+    });
+  }
+
+  // ── Mid-test: PM checks in ──────────────────────────────────────────────────
+  after(2000, () => {
+    goWork(PM_ID, 'pm-checkin', '確認 Tester 進度：DroidClaw 執行中');
+  });
+
+  after(4000, () => {
+    swapTool(PM_ID, 'pm-checkin', 'pm-wait', '等待測試結果回報...');
+  });
+
+  // ── Analyst finishes report ─────────────────────────────────────────────────
+  after(2000, () => {
+    goIdle(ANALYST_ID, 'analyst-report');
+  });
+
+  // ── DroidClaw done, Tester verifies ─────────────────────────────────────────
+  const lastDc = dcSteps[dcSteps.length - 1];
+  after(3000, () => {
+    dispatch({ type: 'agentToolDone', id: TESTER_ID, toolId: lastDc.id });
+    dispatch({ type: 'agentToolDone', id: TESTER_ID, toolId: 'tester-dc' });
+    dispatch({ type: 'agentToolsClear', id: TESTER_ID });
+    goWork(TESTER_ID, 'tester-verify', '驗證結果：比對螢幕截圖與預期畫面');
+  });
+
+  after(4000, () => {
+    swapTool(TESTER_ID, 'tester-verify', 'tester-screenshot', '擷取測試證據截圖');
+  });
+
+  // ── Tester reports to PM ────────────────────────────────────────────────────
+  after(3000, () => {
+    goIdle(TESTER_ID, 'tester-screenshot');
+  });
+
+  after(2000, () => {
+    swapTool(PM_ID, 'pm-wait', 'pm-review', '審核測試報告：STTL-181126 語言切換');
+  });
+
+  after(4000, () => {
+    swapTool(PM_ID, 'pm-review', 'pm-approve', '✓ 測試通過 — 簽核結案');
+  });
+
+  after(3000, () => {
+    goIdle(PM_ID, 'pm-approve');
+  });
+
+  // ── Tester marks PASS ───────────────────────────────────────────────────────
+  after(1000, () => {
+    goWork(TESTER_ID, 'tester-result', '✓ PASS — STTL-181126 測試完成');
+  });
+
+  after(5000, () => {
+    goIdle(TESTER_ID, 'tester-result');
+  });
+
+  // ── Analyst starts new task ─────────────────────────────────────────────────
+  after(2000, () => {
+    goWork(ANALYST_ID, 'analyst-new', '開始分析下一批測試數據');
+  });
+
+  after(8000, () => {
+    goIdle(ANALYST_ID, 'analyst-new');
+  });
+}
+
 /**
  * Call inside a useEffect in App.tsx — after the window message listener
  * in useExtensionMessages has been registered.
@@ -263,8 +424,51 @@ export function dispatchMockMessages(): void {
   dispatch({ type: 'floorTilesLoaded', sprites: floorSprites });
   dispatch({ type: 'wallTilesLoaded', sets: wallSets });
   dispatch({ type: 'furnitureAssetsLoaded', catalog: furnitureCatalog, sprites: furnitureSprites });
+  // ── Goose mock agents (buffered before layoutLoaded) ─────────────────────────
+  // Seat IDs from default-layout-2.json furniture UIDs:
+  //   Executive office (right-upper): exec-chair (CUSHIONED_CHAIR_BACK)
+  //   Test lab 1 (upper-left):        lab1-chair1/2 (WOODEN_CHAIR_FRONT)
+  //   Test lab 2 (upper-center):      lab2-chair1/2 (WOODEN_CHAIR_FRONT)
+  //   Analysis room (right-lower):    analysis-chair1/2 (WOODEN_CHAIR_FRONT)
+  //   Lobby bar (lower-left):         lobby-sofa1..4, bench1..4
+  const PM_ID = 101;
+  const ANALYST_ID = 102;
+  const TESTER_ID = 103;
+  const PM_SEAT = 'exec-chair';            // Executive office — PM's throne
+  const ANALYST_SEAT = 'analysis-chair1';  // Analysis room — multi-monitor station
+  const TESTER_SEAT = 'lab1-chair1';       // Test lab 1 workstation
+
+  // Seat assignments:
+  //   PM       → executive office (right-upper)
+  //   Analyst  → analysis room (right-lower, multi-PC data station)
+  //   Tester   → test lab 1 (upper-left)
+  //   DroidClaw spawns will use lab1-chair2, lab2-chair1/2
+  dispatch({
+    type: 'existingAgents',
+    agents: [PM_ID, ANALYST_ID, TESTER_ID],
+    agentMeta: {
+      [PM_ID]: { seatId: PM_SEAT },
+      [ANALYST_ID]: { seatId: ANALYST_SEAT },
+      [TESTER_ID]: { seatId: TESTER_SEAT },
+    },
+    folderNames: {
+      [PM_ID]: 'PM',
+      [ANALYST_ID]: 'Analyst',
+      [TESTER_ID]: 'Tester',
+    },
+  });
+
   dispatch({ type: 'layoutLoaded', layout });
   dispatch({ type: 'settingsLoaded', soundEnabled: false });
 
-  console.log('[BrowserMock] Messages dispatched');
+  // PM and Analyst idle on sofa
+  dispatch({ type: 'agentStatus', id: PM_ID, status: 'idle' });
+  dispatch({ type: 'agentStatus', id: ANALYST_ID, status: 'idle' });
+  // Tester starts idle too, will be activated by mock session
+  dispatch({ type: 'agentStatus', id: TESTER_ID, status: 'idle' });
+
+  // Simulate MobileGoose test session after a short delay.
+  scheduleMockTestSession(dispatch);
+
+  console.log('[BrowserMock] Messages dispatched (with Goose mock agents)');
 }
