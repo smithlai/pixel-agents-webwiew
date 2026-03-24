@@ -1,4 +1,82 @@
-# Pixel Agents — Compressed Reference
+# pixel-agents-webview — GooseOffice Fork
+
+## Fork 目的
+從 pixel-agents VS Code extension 抽出 webview-ui 為獨立 web app，
+作為 Goose AI Agent 的像素風工作狀態 dashboard。
+
+- **上游**: [pablodelucca/pixel-agents](https://github.com/pablodelucca/pixel-agents)（MIT License）
+- **Fork**: [smithlai/pixel-agents-webwiew](https://github.com/smithlai/pixel-agents-webwiew)
+- **姊妹專案**: MobileGoose（Goose + DroidClaw 測試框架）、TokiView（私人 Live2D 桌面精靈）
+
+## 獨立運行 webview-ui（不需要 VS Code）
+```bash
+cd webview-ui
+npm install
+npm run dev
+# 瀏覽器開 http://localhost:5173
+```
+webview-ui 內建 browser 模式偵測（`runtime.ts`），自動載入 mock 資料（`browserMock.ts`）。
+Vite middleware 提供 `/assets/decoded/*.json` 預解碼素材。
+WebSocket 自動連接 Goose 事件串流（`gooseSocket.ts`），fallback 到 mock 模擬。
+
+## 開發路線
+1. **Phase 1（已完成）**: webview-ui 獨立啟動，確認像素辦公室在瀏覽器正常渲染
+2. **Phase 2（已完成）**: Vite plugin + WebSocket server，接入 Goose JSONL 事件流 + Agent 狀態面板 + 房間佈局
+3. **Phase 3（待開發）**: AgentProfile 空間認知、行為系統、自訂角色 sprite、公開部署
+
+## Backlog
+- **Goose watch 路徑可設定化**：目前 `vite.config.ts` 的 `gooseWatchDir` 硬編碼相對路徑 `../../MobileGoose/.runtime/sessions`，可透過 `GOOSE_WATCH_DIR` 環境變數覆蓋，但需要更好的設定方式（`.env`、UI 設定面板、或啟動時互動選擇）
+- **AgentProfile 資料結構**：定義 agent 與房間/座位的綁定關係（workSeat / restSeat / reportTo）
+- **空間行為系統**：擴展 FSM，實作事件觸發動線（接任務→匯報→工作→回報→休息）
+- **光柱 Spawn 特效**：搭配 matrixEffect.ts 擴展，用於 sub-agent spawn
+- **UI 完整中文化**：編輯器工具欄、設定面板等仍為英文
+
+## GooseOffice 新增架構
+
+```
+server/                       — Goose 事件串流後端（Node.js，不依賴 VS Code）
+  gooseEvents.ts              — Goose JSONL 事件類型定義
+  gooseWatcher.ts             — JSONL 檔案監視（混合 fs.watch + 輪詢）
+  eventTranslator.ts          — GooseEvent → pixel-agents webview 訊息轉譯
+  viteGoosePlugin.ts          — Vite dev server 整合，WebSocket 升級處理
+  simulate-goose.ts           — 測試用事件模擬腳本
+  test-events.jsonl           — 測試用事件資料
+
+shared/assets/                — 共用資產模組（extension + browser 通用）
+  pngDecoder.ts               — PNG → SpriteData 解碼器
+  loader.ts                   — 資產載入邏輯
+  constants.ts                — 資產相關常數
+  types.ts                    — 資產類型定義
+  build.ts                    — 建構腳本
+  manifestUtils.ts            — 資產清單工具
+
+webview-ui/src/               — GooseOffice 新增檔案
+  runtime.ts                  — 環境偵測（vscode / browser）
+  gooseSocket.ts              — WebSocket 客戶端，自動重連，連接 Goose 事件串流
+  browserMock.ts              — 瀏覽器模式完整模擬（3 Agent + DroidClaw 測試流程）
+  components/
+    AgentStatusPanel.tsx      — 右側 Agent 即時狀態面板（繁中 UI）
+```
+
+**雙模式運行**：
+- **VS Code 模式**：extension ↔ webview 的 postMessage IPC（原版架構）
+- **瀏覽器模式**：Vite dev server + WebSocket Goose 串流 + mock fallback
+
+**GooseOffice 房間佈局**（`default-layout-2.json`，32×28 格線）：
+- Executive Office（主管辦公室）— 右上角
+- Test Lab 1 & 2（測試實驗室）— 左上方
+- Analysis Room（分析室）— 右下方
+- Lobby Bar（休息吧）— 下方
+
+## VS Code 耦合點（改造參考）
+- `src/` = extension backend，獨立運行時不需要
+- `webview-ui/src/vscodeApi.ts` = postMessage fallback，browser 模式退化為 console.log
+- `webview-ui/src/browserMock.ts` = 完整模擬 extension 訊息
+- 訊息通道：window.addEventListener('message') — VS Code 和瀏覽器都能用
+
+---
+
+# 以下為原版 pixel-agents 參考文件
 
 VS Code extension with embedded React webview: pixel art office where AI agents (Claude Code terminals) are animated characters.
 
