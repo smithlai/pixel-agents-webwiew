@@ -25,6 +25,7 @@ import type {
   CatalogEntry,
   CharacterDirectionSprites,
 } from '../../shared/assets/types.ts';
+import { DEFAULT_PROFILES as profiles } from './office/agentProfiles.js';
 
 interface MockPayload {
   characters: CharacterDirectionSprites[];
@@ -425,36 +426,23 @@ export function dispatchMockMessages(): void {
   dispatch({ type: 'wallTilesLoaded', sets: wallSets });
   dispatch({ type: 'furnitureAssetsLoaded', catalog: furnitureCatalog, sprites: furnitureSprites });
   // ── Goose mock agents (buffered before layoutLoaded) ─────────────────────────
-  // Seat IDs from default-layout-2.json furniture UIDs:
-  //   Executive office (right-upper): exec-chair (CUSHIONED_CHAIR_BACK)
-  //   Test lab 1 (upper-left):        lab1-chair1/2 (WOODEN_CHAIR_FRONT)
-  //   Test lab 2 (upper-center):      lab2-chair1/2 (WOODEN_CHAIR_FRONT)
-  //   Analysis room (right-lower):    analysis-chair1/2 (WOODEN_CHAIR_FRONT)
-  //   Lobby bar (lower-left):         lobby-sofa1..4, bench1..4
+  // Agent profiles define seat assignments and metadata (see agentProfiles.ts)
   const PM_ID = 101;
   const ANALYST_ID = 102;
   const TESTER_ID = 103;
-  const PM_SEAT = 'exec-chair';            // Executive office — PM's throne
-  const ANALYST_SEAT = 'analysis-chair1';  // Analysis room — multi-monitor station
-  const TESTER_SEAT = 'lab1-chair1';       // Test lab 1 workstation
 
-  // Seat assignments:
-  //   PM       → executive office (right-upper)
-  //   Analyst  → analysis room (right-lower, multi-PC data station)
-  //   Tester   → test lab 1 (upper-left)
-  //   DroidClaw spawns will use lab1-chair2, lab2-chair1/2
   dispatch({
     type: 'existingAgents',
     agents: [PM_ID, ANALYST_ID, TESTER_ID],
     agentMeta: {
-      [PM_ID]: { seatId: PM_SEAT },
-      [ANALYST_ID]: { seatId: ANALYST_SEAT },
-      [TESTER_ID]: { seatId: TESTER_SEAT },
+      [PM_ID]: { seatId: profiles.pm.workSeat },
+      [ANALYST_ID]: { seatId: profiles.analyst.workSeat },
+      [TESTER_ID]: { seatId: profiles.tester.workSeat },
     },
     folderNames: {
-      [PM_ID]: 'PM',
-      [ANALYST_ID]: 'Analyst',
-      [TESTER_ID]: 'Tester',
+      [PM_ID]: profiles.pm.name,
+      [ANALYST_ID]: profiles.analyst.name,
+      [TESTER_ID]: profiles.tester.name,
     },
   });
 

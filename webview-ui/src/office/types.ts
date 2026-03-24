@@ -190,4 +190,6 @@ export interface Character {
   matrixEffectSeeds: number[];
   /** Workspace folder name (only set for multi-root workspaces) */
   folderName?: string;
+  /** Matched agent profile key (e.g. 'pm', 'tester') */
+  profileKey?: string;
 }

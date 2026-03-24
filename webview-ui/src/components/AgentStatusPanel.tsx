@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import type { SubagentCharacter } from '../hooks/useExtensionMessages.js';
+import { DEFAULT_PROFILES, getRoomDisplayName } from '../office/agentProfiles.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import type { ToolActivity } from '../office/types.js';
 
@@ -146,7 +147,10 @@ function AgentCard({
     ? (subagentCharacters.find((s) => s.id === id)?.label ?? 'Subtask')
     : getActivityText(id, agentTools, ch.isActive);
   const status = getStatusInfo(id, agentTools, ch.isActive, isSub, ch.bubbleType);
-  const name = ch.folderName ?? `Agent ${id}`;
+  const profile = ch.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
+  const name = ch.folderName ?? profile?.name ?? `Agent ${id}`;
+  const modelLabel = profile?.model;
+  const roomLabel = profile ? getRoomDisplayName(profile) : null;
 
   // Reverse: newest first
   const reversed = [...history].reverse();
@@ -186,6 +190,11 @@ function AgentCard({
         <span style={{ fontSize: '16px', color: 'var(--pixel-text-dim)', flexShrink: 0 }}>
           [{status.label}]
         </span>
+        {modelLabel && (
+          <span style={{ fontSize: '13px', color: 'var(--pixel-accent)', flexShrink: 0 }}>
+            {modelLabel}
+          </span>
+        )}
         <span
           style={{
             fontSize: '14px',
@@ -200,6 +209,12 @@ function AgentCard({
           {activityText}
         </span>
       </div>
+      {/* Room label */}
+      {roomLabel && !isSub && (
+        <div style={{ paddingLeft: 16, fontSize: '13px', color: 'var(--pixel-text-dim)', opacity: 0.7 }}>
+          {roomLabel}
+        </div>
+      )}
 
       {/* History lines */}
       {visibleHistory.length > 0 && (

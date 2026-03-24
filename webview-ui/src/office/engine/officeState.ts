@@ -31,6 +31,7 @@ import type {
   TileType as TileTypeVal,
 } from '../types.js';
 import { CharacterState, Direction, MATRIX_EFFECT_DURATION, TILE_SIZE } from '../types.js';
+import { DEFAULT_PROFILES, matchProfile } from '../agentProfiles.js';
 import { createCharacter, updateCharacter } from './characters.js';
 import { matrixEffectSeeds } from './matrixEffect.js';
 
@@ -218,23 +219,33 @@ export class OfficeState {
   ): void {
     if (this.characters.has(id)) return;
 
+    // Try to match an AgentProfile by folderName
+    const profile = folderName ? matchProfile(folderName) : null;
+
     let palette: number;
     let hueShift: number;
     if (preferredPalette !== undefined) {
       palette = preferredPalette;
       hueShift = preferredHueShift ?? 0;
+    } else if (profile?.palette !== undefined) {
+      palette = profile.palette;
+      hueShift = 0;
     } else {
       const pick = this.pickDiversePalette();
       palette = pick.palette;
       hueShift = pick.hueShift;
     }
 
-    // Try preferred seat first, then any free seat
+    // Seat priority: explicit param > profile workSeat > any free seat
     let seatId: string | null = null;
-    if (preferredSeatId && this.seats.has(preferredSeatId)) {
-      const seat = this.seats.get(preferredSeatId)!;
-      if (!seat.assigned) {
-        seatId = preferredSeatId;
+    const seatCandidates = [preferredSeatId, profile?.workSeat].filter(Boolean) as string[];
+    for (const candidate of seatCandidates) {
+      if (this.seats.has(candidate)) {
+        const seat = this.seats.get(candidate)!;
+        if (!seat.assigned) {
+          seatId = candidate;
+          break;
+        }
       }
     }
     if (!seatId) {
@@ -259,8 +270,15 @@ export class OfficeState {
       ch.tileRow = spawn.row;
     }
 
-    if (folderName) {
-      ch.folderName = folderName;
+    // Apply profile metadata
+    ch.folderName = folderName ?? profile?.name;
+    if (profile) {
+      for (const [key, p] of Object.entries(DEFAULT_PROFILES)) {
+        if (p === profile) {
+          ch.profileKey = key;
+          break;
+        }
+      }
     }
     if (!skipSpawnEffect) {
       ch.matrixEffect = 'spawn';
