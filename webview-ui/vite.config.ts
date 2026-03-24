@@ -4,6 +4,7 @@ import * as path from 'path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vite';
 
+import { goosePlugin } from '../server/viteGoosePlugin.ts';
 import { buildAssetIndex, buildFurnitureCatalog } from '../shared/assets/build.ts';
 import {
   decodeAllCharacters,
@@ -98,8 +99,16 @@ function browserMockAssetsPlugin(): Plugin {
   };
 }
 
+// Goose JSONL watch directory — defaults to MobileGoose/.runtime/sessions
+const gooseWatchDir = process.env.GOOSE_WATCH_DIR
+  ?? path.resolve(__dirname, '../../MobileGoose/.runtime/sessions');
+
 export default defineConfig({
-  plugins: [react(), browserMockAssetsPlugin()],
+  plugins: [
+    react(),
+    browserMockAssetsPlugin(),
+    goosePlugin({ watchDir: gooseWatchDir }),
+  ],
   build: {
     outDir: '../dist/webview',
     emptyOutDir: true,

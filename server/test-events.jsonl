@@ -1,0 +1,16 @@
+{"type":"session_start","provider":"github_copilot","model":"gpt-4.1","testrun":"test-demo","ts":"2026-03-23T09:37:10.767+00:00"}
+{"type":"tool_start","toolId":"t1","toolName":"get_testcase_details","extension":"mcp-ta2","ts":"2026-03-23T09:37:12.843+00:00"}
+{"type":"tool_args","toolId":"t1","key":"testcase_id","value":"STTL-181126","ts":"2026-03-23T09:37:12.843+00:00"}
+{"type":"tool_end","toolId":"t1","toolName":"get_testcase_details","extension":"mcp-ta2","ts":"2026-03-23T09:37:15.814+00:00"}
+{"type":"tool_start","toolId":"t2","toolName":"todo_write","extension":"todo","ts":"2026-03-23T09:37:16.000+00:00"}
+{"type":"tool_args","toolId":"t2","key":"content","value":"- [x] STTL-181126 語言切換測試","ts":"2026-03-23T09:37:16.100+00:00"}
+{"type":"tool_end","toolId":"t2","toolName":"todo_write","extension":"todo","ts":"2026-03-23T09:37:18.000+00:00"}
+{"type":"tool_start","toolId":"t3","toolName":"shell","extension":"developer","ts":"2026-03-23T09:37:20.000+00:00"}
+{"type":"tool_args","toolId":"t3","key":"command","value":"python run-test.py \"Connect to WiFi\"","ts":"2026-03-23T09:37:20.100+00:00"}
+{"type":"droidclaw_start","parentToolId":"t3","goal":"Connect to WiFi","ts":"2026-03-23T09:37:25.000+00:00"}
+{"type":"droidclaw_step","parentToolId":"t3","step":1,"maxSteps":50,"think":"Opening WiFi settings to connect","decision":"open_settings — Open WiFi settings (2609ms)","ts":"2026-03-23T09:37:28.000+00:00"}
+{"type":"droidclaw_step","parentToolId":"t3","step":2,"maxSteps":50,"think":"WiFi already connected to ST_Public","decision":"done — WiFi connected (2202ms)","ts":"2026-03-23T09:37:32.000+00:00"}
+{"type":"droidclaw_done","parentToolId":"t3","success":true,"message":"WiFi connected to ST_Public","totalSteps":2,"ts":"2026-03-23T09:37:33.000+00:00"}
+{"type":"droidclaw_log","path":"logs/test-demo.json","ts":"2026-03-23T09:37:33.500+00:00"}
+{"type":"tool_end","toolId":"t3","toolName":"shell","extension":"developer","ts":"2026-03-23T09:37:34.000+00:00"}
+{"type":"session_end","reason":"completed","ts":"2026-03-23T09:38:00.000+00:00"}

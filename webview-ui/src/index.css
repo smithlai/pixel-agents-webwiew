@@ -46,6 +46,9 @@
   --pixel-status-permission: var(--vscode-charts-yellow, #cca700);
   --pixel-status-active: var(--vscode-charts-blue, #3794ff);
 
+  /* Panel font (system sans-serif for CJK readability) */
+  --pixel-panel-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+
   /* ToolOverlay z-index layers */
   --pixel-overlay-z: 41;
   --pixel-overlay-selected-z: 42;
@@ -64,4 +67,9 @@ body,
 
 * {
   font-family: 'FS Pixel Sans', sans-serif;
+}
+
+.panel-font,
+.panel-font * {
+  font-family: var(--pixel-panel-font) !important;
 }

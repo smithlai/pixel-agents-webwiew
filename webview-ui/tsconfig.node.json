@@ -6,7 +6,9 @@
     "module": "ESNext",
     "baseUrl": ".",
     "paths": {
-      "pngjs": ["./node_modules/@types/pngjs/index.d.ts"]
+      "pngjs": ["./node_modules/@types/pngjs/index.d.ts"],
+      "vite": ["./node_modules/vite/dist/node/index.d.ts"],
+      "ws": ["./node_modules/ws/index.d.mts"]
     },
     "types": ["node"],
     "skipLibCheck": true,
@@ -26,5 +28,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["vite.config.ts", "../shared/assets/**/*.ts", "test/**/*.ts"]
+  "include": ["vite.config.ts", "../shared/assets/**/*.ts", "../server/**/*.ts", "test/**/*.ts"]
 }

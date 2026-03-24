@@ -461,14 +461,23 @@ export function dispatchMockMessages(): void {
   dispatch({ type: 'layoutLoaded', layout });
   dispatch({ type: 'settingsLoaded', soundEnabled: false });
 
-  // PM and Analyst idle on sofa
+  // PM and Analyst idle — will run mock scripts
   dispatch({ type: 'agentStatus', id: PM_ID, status: 'idle' });
   dispatch({ type: 'agentStatus', id: ANALYST_ID, status: 'idle' });
-  // Tester starts idle too, will be activated by mock session
+  // Tester starts idle — driven by WebSocket (real Goose events) or mock fallback
   dispatch({ type: 'agentStatus', id: TESTER_ID, status: 'idle' });
 
-  // Simulate MobileGoose test session after a short delay.
+  // PM and Analyst always run mock scripts (background actors)
   scheduleMockTestSession(dispatch);
+
+  // Tester: connect to Goose WebSocket for real events
+  // (if server is not available, Tester just stays idle — that's fine)
+  import('./gooseSocket.js').then(({ initGooseSocket }) => {
+    initGooseSocket();
+    console.log('[BrowserMock] Goose WebSocket client started for Tester agent');
+  }).catch(() => {
+    console.log('[BrowserMock] Goose WebSocket not available, Tester stays in mock mode');
+  });
 
   console.log('[BrowserMock] Messages dispatched (with Goose mock agents)');
 }

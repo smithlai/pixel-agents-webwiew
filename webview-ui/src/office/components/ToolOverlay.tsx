@@ -131,11 +131,12 @@ export function ToolOverlay({
         return (
           <div
             key={id}
+            className="panel-font"
             style={{
               position: 'absolute',
               left: screenX,
-              top: screenY - 24,
-              transform: 'translateX(-50%)',
+              top: screenY,
+              transform: 'translateX(-50%) translateY(-100%)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -176,8 +177,8 @@ export function ToolOverlay({
                 {ch.folderName && (
                   <span
                     style={{
-                      fontSize: isSub ? '20px' : '22px',
-                      lineHeight: 1.2,
+                      fontSize: isSub ? '11px' : '12px',
+                      lineHeight: 1.3,
                       fontStyle: isSub ? 'italic' : undefined,
                       color: 'var(--vscode-foreground, var(--pixel-text))',
                       overflow: 'hidden',
@@ -190,8 +191,8 @@ export function ToolOverlay({
                 )}
                 <span
                   style={{
-                    fontSize: ch.folderName ? '16px' : (isSub ? '20px' : '22px'),
-                    lineHeight: 1.2,
+                    fontSize: ch.folderName ? '10px' : (isSub ? '11px' : '12px'),
+                    lineHeight: 1.3,
                     fontStyle: isSub ? 'italic' : undefined,
                     color: ch.folderName ? 'var(--pixel-text-dim)' : 'var(--vscode-foreground, var(--pixel-text))',
                     overflow: 'hidden',
