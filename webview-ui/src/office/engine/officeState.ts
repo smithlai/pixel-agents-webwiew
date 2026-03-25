@@ -21,7 +21,7 @@ import {
   layoutToSeats,
   layoutToTileMap,
 } from '../layout/layoutSerializer.js';
-import { findPath, getWalkableTiles, isWalkable } from '../layout/tileMap.js';
+import { findAdjacentWalkable, findPath, getWalkableTiles, isWalkable } from '../layout/tileMap.js';
 import type {
   Character,
   FurnitureInstance,
@@ -175,6 +175,42 @@ export class OfficeState {
     return result;
   }
 
+  /** Temporarily unblock own seat + all behavior queue target seats */
+  private withBehaviorSeatsUnblocked<T>(ch: Character, fn: () => T): T {
+    const keys: string[] = [];
+    // Own seat
+    const ownKey = this.ownSeatKey(ch);
+    if (ownKey) keys.push(ownKey);
+    // Rest seat
+    if (ch.restSeatId) {
+      const restSeat = this.seats.get(ch.restSeatId);
+      if (restSeat) keys.push(`${restSeat.seatCol},${restSeat.seatRow}`);
+    }
+    // Behavior queue targets
+    for (const b of ch.behaviorQueue) {
+      if (b.tile) {
+        keys.push(`${b.tile.col},${b.tile.row}`);
+      } else if (b.seatId) {
+        const seat = this.seats.get(b.seatId);
+        if (seat) keys.push(`${seat.seatCol},${seat.seatRow}`);
+      }
+    }
+    // Unblock
+    const restored: string[] = [];
+    for (const k of keys) {
+      if (this.blockedTiles.has(k)) {
+        this.blockedTiles.delete(k);
+        restored.push(k);
+      }
+    }
+    const result = fn();
+    // Re-block
+    for (const k of restored) {
+      this.blockedTiles.add(k);
+    }
+    return result;
+  }
+
   private findFreeSeat(): string | null {
     for (const [uid, seat] of this.seats) {
       if (!seat.assigned) return uid;
@@ -279,6 +315,8 @@ export class OfficeState {
           break;
         }
       }
+      if (profile.restSeat) ch.restSeatId = profile.restSeat;
+      if (profile.reportTo) ch.reportToKey = profile.reportTo;
     }
     if (!skipSpawnEffect) {
       ch.matrixEffect = 'spawn';
@@ -537,13 +575,45 @@ export class OfficeState {
   setAgentActive(id: number, active: boolean): void {
     const ch = this.characters.get(id);
     if (ch) {
+      // Skip if already in the desired state (avoid resetting queue on duplicate calls)
+      if (ch.isActive === active) return;
       ch.isActive = active;
-      if (!active) {
+      ch.behaviorQueue = [];
+      if (active) {
+        // Build behavior queue: reportTo → workSeat
+        if (ch.reportToKey) {
+          const bossProfile = DEFAULT_PROFILES[ch.reportToKey];
+          if (bossProfile && this.seats.has(bossProfile.workSeat)) {
+            const bossSeat = this.seats.get(bossProfile.workSeat)!;
+            // Find a walkable tile adjacent to the boss's chair
+            const adj = findAdjacentWalkable(
+              bossSeat.seatCol, bossSeat.seatRow, this.tileMap, this.blockedTiles,
+            );
+            if (adj) {
+              // Face toward the boss
+              const dc = bossSeat.seatCol - adj.col;
+              const dr = bossSeat.seatRow - adj.row;
+              let facingDir: Direction;
+              if (Math.abs(dc) >= Math.abs(dr)) {
+                facingDir = dc > 0 ? Direction.RIGHT : Direction.LEFT;
+              } else {
+                facingDir = dr > 0 ? Direction.DOWN : Direction.UP;
+              }
+              ch.behaviorQueue.push({ tile: adj, facingDir, action: 'report' });
+            }
+          }
+        }
+        // After report (or immediately if no boss), go to own workSeat
+        // This will be triggered when the first toolStart arrives (see setAgentTool)
+      } else {
         // Sentinel -1: signals turn just ended, skip next seat rest timer.
-        // Prevents the WALK handler from setting a 2-4 min rest on arrival.
         ch.seatTimer = -1;
         ch.path = [];
         ch.moveProgress = 0;
+        // Queue: go to restSeat if available
+        if (ch.restSeatId && this.seats.has(ch.restSeatId)) {
+          ch.behaviorQueue.push({ seatId: ch.restSeatId, action: 'rest' });
+        }
       }
       this.rebuildFurnitureInstances();
     }
@@ -621,6 +691,17 @@ export class OfficeState {
     const ch = this.characters.get(id);
     if (ch) {
       ch.currentTool = tool;
+      // When a tool starts and agent is in report phase → send to workSeat
+      if (tool && ch.seatId) {
+        const isReporting = ch.state === CharacterState.REPORT;
+        const hasReportInQueue = ch.behaviorQueue.some((b) => b.action === 'report');
+        if (isReporting || hasReportInQueue) {
+          // Clear report queue and go straight to work
+          ch.behaviorQueue = [{ seatId: ch.seatId, action: 'work' }];
+          // If currently in REPORT, the update loop will pick up the queue
+          // If still walking to report, let the walk finish then the queue processes
+        }
+      }
     }
   }
 
@@ -689,8 +770,8 @@ export class OfficeState {
         continue; // skip normal FSM while effect is active
       }
 
-      // Temporarily unblock own seat so character can pathfind to it
-      this.withOwnSeatUnblocked(ch, () =>
+      // Temporarily unblock own seat + behavior queue targets so character can pathfind
+      this.withBehaviorSeatsUnblocked(ch, () =>
         updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles),
       );
 

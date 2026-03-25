@@ -11,7 +11,7 @@ import {
 } from '../../constants.js';
 import { findPath } from '../layout/tileMap.js';
 import type { CharacterSprites } from '../sprites/spriteData.js';
-import type { Character, Seat, SpriteData, TileType as TileTypeVal } from '../types.js';
+import type { BehaviorStep, Character, Seat, SpriteData, TileType as TileTypeVal } from '../types.js';
 import { CharacterState, Direction, TILE_SIZE } from '../types.js';
 
 /** Tools that show reading animation instead of typing */
@@ -83,7 +83,86 @@ export function createCharacter(
     matrixEffect: null,
     matrixEffectTimer: 0,
     matrixEffectSeeds: [],
+    behaviorQueue: [],
   };
+}
+
+/** Resolve a BehaviorStep to a target tile and facing direction */
+function resolveBehaviorTarget(
+  step: BehaviorStep,
+  seats: Map<string, Seat>,
+): { col: number; row: number; facingDir: Direction } | null {
+  if (step.tile) {
+    return { col: step.tile.col, row: step.tile.row, facingDir: step.facingDir ?? Direction.DOWN };
+  }
+  if (step.seatId) {
+    const seat = seats.get(step.seatId);
+    if (seat) return { col: seat.seatCol, row: seat.seatRow, facingDir: seat.facingDir };
+  }
+  return null;
+}
+
+/**
+ * Try to start the next behavior in the queue.
+ * Returns true if a walk was initiated or action taken, false if queue empty.
+ */
+function processNextBehavior(
+  ch: Character,
+  seats: Map<string, Seat>,
+  tileMap: TileTypeVal[][],
+  blockedTiles: Set<string>,
+): boolean {
+  if (ch.behaviorQueue.length === 0) return false;
+  const next = ch.behaviorQueue[0];
+  const target = resolveBehaviorTarget(next, seats);
+  if (!target) {
+    // Invalid target — skip
+    ch.behaviorQueue.shift();
+    return processNextBehavior(ch, seats, tileMap, blockedTiles);
+  }
+  // Already at the target tile?
+  if (ch.tileCol === target.col && ch.tileRow === target.row) {
+    ch.behaviorQueue.shift();
+    applyBehaviorAction(ch, next, target.facingDir);
+    return true;
+  }
+  // Pathfind to target
+  const path = findPath(ch.tileCol, ch.tileRow, target.col, target.row, tileMap, blockedTiles);
+  if (path.length > 0) {
+    ch.path = path;
+    ch.moveProgress = 0;
+    ch.state = CharacterState.WALK;
+    ch.frame = 0;
+    ch.frameTimer = 0;
+    return true;
+  }
+  // No path — skip this behavior
+  ch.behaviorQueue.shift();
+  return processNextBehavior(ch, seats, tileMap, blockedTiles);
+}
+
+/** Apply the action when arriving at a behavior target */
+function applyBehaviorAction(ch: Character, step: BehaviorStep, facingDir: Direction): void {
+  ch.frame = 0;
+  ch.frameTimer = 0;
+  switch (step.action) {
+    case 'report':
+      // Stand facing the boss
+      ch.state = CharacterState.REPORT;
+      ch.dir = facingDir;
+      break;
+    case 'work':
+      ch.state = CharacterState.TYPE;
+      ch.dir = facingDir;
+      break;
+    case 'rest':
+      ch.state = CharacterState.TYPE;
+      ch.dir = facingDir;
+      ch.seatTimer = randomRange(SEAT_REST_MIN_SEC, SEAT_REST_MAX_SEC);
+      ch.wanderCount = 0;
+      ch.wanderLimit = randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX);
+      break;
+  }
 }
 
 export function updateCharacter(
@@ -102,13 +181,41 @@ export function updateCharacter(
         ch.frameTimer -= TYPE_FRAME_DURATION_SEC;
         ch.frame = (ch.frame + 1) % 2;
       }
-      // If no longer active, stand up and start wandering (after seatTimer expires)
+      // If active but has behavior queue (e.g. just assigned report → work), stand up
+      if (ch.isActive && ch.behaviorQueue.length > 0) {
+        ch.seatTimer = 0;
+        processNextBehavior(ch, seats, tileMap, blockedTiles);
+        break;
+      }
+      // If active but sitting at wrong seat (e.g. rest seat), walk to work seat
+      if (ch.isActive && ch.seatId) {
+        const seat = seats.get(ch.seatId);
+        if (seat && (ch.tileCol !== seat.seatCol || ch.tileRow !== seat.seatRow)) {
+          const path = findPath(
+            ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles,
+          );
+          if (path.length > 0) {
+            ch.path = path;
+            ch.moveProgress = 0;
+            ch.state = CharacterState.WALK;
+            ch.frame = 0;
+            ch.frameTimer = 0;
+            break;
+          }
+        }
+      }
+      // If no longer active, stand up and start idle/rest behavior
       if (!ch.isActive) {
         if (ch.seatTimer > 0) {
           ch.seatTimer -= dt;
           break;
         }
         ch.seatTimer = 0; // clear sentinel
+        // If there are queued behaviors (e.g. go to restSeat), process them
+        if (ch.behaviorQueue.length > 0) {
+          processNextBehavior(ch, seats, tileMap, blockedTiles);
+          break;
+        }
         ch.state = CharacterState.IDLE;
         ch.frame = 0;
         ch.frameTimer = 0;
@@ -119,12 +226,28 @@ export function updateCharacter(
       break;
     }
 
+    case CharacterState.REPORT: {
+      // Standing in front of boss's desk — idle pose, waiting for work to begin
+      ch.frame = 0;
+      // When isActive becomes true AND a tool starts, officeState will clear this
+      // by pushing 'work' behavior to the queue. Meanwhile just stand here.
+      // If queue has items (work was assigned), start moving
+      if (ch.behaviorQueue.length > 0) {
+        processNextBehavior(ch, seats, tileMap, blockedTiles);
+      }
+      break;
+    }
+
     case CharacterState.IDLE: {
       // No idle animation — static pose
       ch.frame = 0;
       if (ch.seatTimer < 0) ch.seatTimer = 0; // clear turn-end sentinel
-      // If became active, pathfind to seat
+      // If became active — check behavior queue first, then fallback to seat
       if (ch.isActive) {
+        if (ch.behaviorQueue.length > 0) {
+          processNextBehavior(ch, seats, tileMap, blockedTiles);
+          break;
+        }
         if (!ch.seatId) {
           // No seat assigned — type in place
           ch.state = CharacterState.TYPE;
@@ -161,25 +284,28 @@ export function updateCharacter(
       // Countdown wander timer
       ch.wanderTimer -= dt;
       if (ch.wanderTimer <= 0) {
-        // Check if we've wandered enough — return to seat for a rest
-        if (ch.wanderCount >= ch.wanderLimit && ch.seatId) {
-          const seat = seats.get(ch.seatId);
-          if (seat) {
-            const path = findPath(
-              ch.tileCol,
-              ch.tileRow,
-              seat.seatCol,
-              seat.seatRow,
-              tileMap,
-              blockedTiles,
-            );
-            if (path.length > 0) {
-              ch.path = path;
-              ch.moveProgress = 0;
-              ch.state = CharacterState.WALK;
-              ch.frame = 0;
-              ch.frameTimer = 0;
-              break;
+        // Check if we've wandered enough — return to rest seat or work seat
+        if (ch.wanderCount >= ch.wanderLimit) {
+          const restTarget = ch.restSeatId ?? ch.seatId;
+          if (restTarget) {
+            const seat = seats.get(restTarget);
+            if (seat) {
+              const path = findPath(
+                ch.tileCol,
+                ch.tileRow,
+                seat.seatCol,
+                seat.seatRow,
+                tileMap,
+                blockedTiles,
+              );
+              if (path.length > 0) {
+                ch.path = path;
+                ch.moveProgress = 0;
+                ch.state = CharacterState.WALK;
+                ch.frame = 0;
+                ch.frameTimer = 0;
+                break;
+              }
             }
           }
         }
@@ -220,6 +346,20 @@ export function updateCharacter(
         ch.x = center.x;
         ch.y = center.y;
 
+        // Check behavior queue first
+        if (ch.behaviorQueue.length > 0) {
+          const next = ch.behaviorQueue[0];
+          const target = resolveBehaviorTarget(next, seats);
+          if (target && ch.tileCol === target.col && ch.tileRow === target.row) {
+            // Arrived at behavior target
+            ch.behaviorQueue.shift();
+            applyBehaviorAction(ch, next, target.facingDir);
+            break;
+          }
+          // Not at target yet — continue processing queue
+          if (processNextBehavior(ch, seats, tileMap, blockedTiles)) break;
+        }
+
         if (ch.isActive) {
           if (!ch.seatId) {
             // No seat — type in place
@@ -234,14 +374,34 @@ export function updateCharacter(
             }
           }
         } else {
-          // Check if arrived at assigned seat — sit down for a rest before wandering again
+          // Check if arrived at rest seat or work seat — sit down for a rest
+          const restTarget = ch.restSeatId ?? ch.seatId;
+          if (restTarget) {
+            const seat = seats.get(restTarget);
+            if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {
+              ch.state = CharacterState.TYPE;
+              ch.dir = seat.facingDir;
+              if (ch.seatTimer < 0) {
+                ch.seatTimer = 0;
+              } else {
+                ch.seatTimer = randomRange(SEAT_REST_MIN_SEC, SEAT_REST_MAX_SEC);
+              }
+              ch.wanderCount = 0;
+              ch.wanderLimit = randomInt(
+                WANDER_MOVES_BEFORE_REST_MIN,
+                WANDER_MOVES_BEFORE_REST_MAX,
+              );
+              ch.frame = 0;
+              ch.frameTimer = 0;
+              break;
+            }
+          }
+          // Also check work seat (original behavior)
           if (ch.seatId) {
             const seat = seats.get(ch.seatId);
             if (seat && ch.tileCol === seat.seatCol && ch.tileRow === seat.seatRow) {
               ch.state = CharacterState.TYPE;
               ch.dir = seat.facingDir;
-              // seatTimer < 0 is a sentinel from setAgentActive(false) meaning
-              // "turn just ended" — skip the long rest so idle transition is immediate
               if (ch.seatTimer < 0) {
                 ch.seatTimer = 0;
               } else {
@@ -287,8 +447,8 @@ export function updateCharacter(
         ch.moveProgress = 0;
       }
 
-      // If became active while wandering, repath to seat
-      if (ch.isActive && ch.seatId) {
+      // If became active while wandering and no behavior queue, repath to seat
+      if (ch.isActive && ch.seatId && ch.behaviorQueue.length === 0) {
         const seat = seats.get(ch.seatId);
         if (seat) {
           const lastStep = ch.path[ch.path.length - 1];
@@ -323,6 +483,8 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
       return sprites.typing[ch.dir][ch.frame % 2];
     case CharacterState.WALK:
       return sprites.walk[ch.dir][ch.frame % 4];
+    case CharacterState.REPORT:
+      return sprites.walk[ch.dir][1]; // standing pose
     case CharacterState.IDLE:
       return sprites.walk[ch.dir][1];
     default:

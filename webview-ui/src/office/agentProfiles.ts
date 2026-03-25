@@ -85,6 +85,33 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     reportTo: 'tester',
     palette: 3,
   },
+  researcher: {
+    name: 'Goose Researcher',
+    model: 'goose gpt-4.1',
+    room: RoomId.ANALYSIS_ROOM,
+    workSeat: 'analysis-chair2',
+    restSeat: 'lobby-bench1',
+    reportTo: 'analyst',
+    palette: 4,
+  },
+  tester2: {
+    name: 'Goose Tester 2',
+    model: 'goose gpt-4.1',
+    room: RoomId.TEST_LAB_2,
+    workSeat: 'lab2-chair1',
+    restSeat: 'lobby-bench2',
+    reportTo: 'pm',
+    palette: 5,
+  },
+  droidclaw2: {
+    name: 'DroidClaw 2',
+    model: 'droidclaw gpt-4.1',
+    room: RoomId.TEST_LAB_2,
+    workSeat: 'lab2-chair2',
+    restSeat: 'lobby-bench3',
+    reportTo: 'tester2',
+    palette: 3,
+  },
 };
 
 // ── Lookup helpers ───────────────────────────────────────────────────────────

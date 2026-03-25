@@ -405,6 +405,112 @@ function scheduleMockTestSession(dispatch: (data: unknown) => void): void {
   });
 }
 
+/** Researcher agent mock — 獨立研究循環，向 Analyst 匯報 */
+function scheduleMockResearchSession(dispatch: (data: unknown) => void, id: number): void {
+  let cursor = 0;
+  function after(ms: number, fn: () => void): void {
+    cursor += ms;
+    setTimeout(fn, cursor);
+  }
+  function goIdle(toolId: string): void {
+    dispatch({ type: 'agentToolDone', id, toolId });
+    dispatch({ type: 'agentToolsClear', id });
+    dispatch({ type: 'agentStatus', id, status: 'idle' });
+  }
+  function goWork(toolId: string, status: string): void {
+    dispatch({ type: 'agentStatus', id, status: 'active' });
+    dispatch({ type: 'agentToolStart', id, toolId, status });
+  }
+  function swapTool(oldId: string, newId: string, status: string): void {
+    dispatch({ type: 'agentToolDone', id, toolId: oldId });
+    dispatch({ type: 'agentToolStart', id, toolId: newId, status });
+  }
+
+  // Round 1: 研究 API 相容性
+  after(6000, () => goWork('r-read1', '查閱 API 文件：v2 → v3 變更清單'));
+  after(8000, () => swapTool('r-read1', 'r-analyze1', '分析相容性：12 個端點影響評估'));
+  after(7000, () => swapTool('r-analyze1', 'r-write1', '撰寫遷移建議書'));
+  after(6000, () => goIdle('r-write1'));
+
+  // Round 2: 效能基準測試
+  after(5000, () => goWork('r-bench', '執行效能基準測試：回應時間對比'));
+  after(9000, () => swapTool('r-bench', 'r-chart', '生成效能對比圖表'));
+  after(5000, () => swapTool('r-chart', 'r-summary', '彙整研究摘要報告'));
+  after(6000, () => goIdle('r-summary'));
+
+  // Round 3: 安全掃描
+  after(8000, () => goWork('r-scan', '掃描第三方套件漏洞'));
+  after(10000, () => swapTool('r-scan', 'r-patch', '撰寫修補建議：3 個高風險項目'));
+  after(6000, () => goIdle('r-patch'));
+}
+
+/** Tester 2 agent mock — Lab 2 獨立測試循環，包含 DroidClaw 2 */
+function scheduleMockTester2Session(dispatch: (data: unknown) => void, id: number): void {
+  let cursor = 0;
+  function after(ms: number, fn: () => void): void {
+    cursor += ms;
+    setTimeout(fn, cursor);
+  }
+  function goIdle(toolId: string): void {
+    dispatch({ type: 'agentToolDone', id, toolId });
+    dispatch({ type: 'agentToolsClear', id });
+    dispatch({ type: 'agentStatus', id, status: 'idle' });
+  }
+  function goWork(toolId: string, status: string): void {
+    dispatch({ type: 'agentStatus', id, status: 'active' });
+    dispatch({ type: 'agentToolStart', id, toolId, status });
+  }
+  function swapTool(oldId: string, newId: string, status: string): void {
+    dispatch({ type: 'agentToolDone', id, toolId: oldId });
+    dispatch({ type: 'agentToolStart', id, toolId: newId, status });
+  }
+
+  // Round 1: 藍牙配對測試 STTL-200015
+  after(8000, () => goWork('t2-read', '收到任務，讀取測試案例 STTL-200015 藍牙配對'));
+  after(5000, () => swapTool('t2-read', 't2-plan', '規劃測試步驟：開啟藍牙 → 搜尋 → 配對 → 傳檔'));
+  after(4000, () => swapTool('t2-plan', 't2-dc', '派出 DroidClaw 2 執行裝置操作'));
+
+  // DroidClaw 2 sub-agent steps
+  const dc2Steps = [
+    { tid: 't2-dc1', status: '操作裝置：開啟藍牙設定', delay: 4000 },
+    { tid: 't2-dc2', status: '操作裝置：搜尋周邊裝置', delay: 5000 },
+    { tid: 't2-dc3', status: '操作裝置：點擊配對目標裝置', delay: 3500 },
+    { tid: 't2-dc4', status: '操作裝置：確認配對 PIN 碼', delay: 3000 },
+    { tid: 't2-dc5', status: '操作裝置：傳送測試檔案', delay: 4500 },
+    { tid: 't2-dc6', status: '操作裝置：確認檔案接收完成', delay: 3000 },
+  ];
+
+  for (let i = 0; i < dc2Steps.length; i++) {
+    const step = dc2Steps[i];
+    const prev = i === 0 ? 't2-dc' : dc2Steps[i - 1].tid;
+    after(step.delay, () => {
+      if (i === 0) {
+        dispatch({ type: 'agentToolStart', id, toolId: step.tid, status: step.status });
+      } else {
+        swapTool(prev, step.tid, step.status);
+      }
+    });
+  }
+
+  // DroidClaw 2 done
+  const lastDc2 = dc2Steps[dc2Steps.length - 1];
+  after(3000, () => {
+    dispatch({ type: 'agentToolDone', id, toolId: lastDc2.tid });
+    dispatch({ type: 'agentToolDone', id, toolId: 't2-dc' });
+    dispatch({ type: 'agentToolsClear', id });
+    goWork('t2-verify', '驗證結果：檔案完整性比對');
+  });
+  after(5000, () => swapTool('t2-verify', 't2-result', '✓ PASS — STTL-200015 藍牙配對測試完成'));
+  after(4000, () => goIdle('t2-result'));
+
+  // Round 2: Wi-Fi 連線測試
+  after(6000, () => goWork('t2-wifi-read', '收到任務，讀取測試案例 STTL-200022 Wi-Fi 切換'));
+  after(5000, () => swapTool('t2-wifi-read', 't2-wifi-exec', '執行 Wi-Fi 斷線重連壓力測試'));
+  after(8000, () => swapTool('t2-wifi-exec', 't2-wifi-verify', '驗證：連線恢復時間 < 3 秒'));
+  after(4000, () => swapTool('t2-wifi-verify', 't2-wifi-result', '✓ PASS — STTL-200022 Wi-Fi 切換完成'));
+  after(4000, () => goIdle('t2-wifi-result'));
+}
+
 /**
  * Call inside a useEffect in App.tsx — after the window message listener
  * in useExtensionMessages has been registered.
@@ -430,33 +536,42 @@ export function dispatchMockMessages(): void {
   const PM_ID = 101;
   const ANALYST_ID = 102;
   const TESTER_ID = 103;
+  const RESEARCHER_ID = 104;
+  const TESTER2_ID = 105;
 
   dispatch({
     type: 'existingAgents',
-    agents: [PM_ID, ANALYST_ID, TESTER_ID],
+    agents: [PM_ID, ANALYST_ID, TESTER_ID, RESEARCHER_ID, TESTER2_ID],
     agentMeta: {
       [PM_ID]: { seatId: profiles.pm.workSeat },
       [ANALYST_ID]: { seatId: profiles.analyst.workSeat },
       [TESTER_ID]: { seatId: profiles.tester.workSeat },
+      [RESEARCHER_ID]: { seatId: profiles.researcher.workSeat },
+      [TESTER2_ID]: { seatId: profiles.tester2.workSeat },
     },
     folderNames: {
       [PM_ID]: profiles.pm.name,
       [ANALYST_ID]: profiles.analyst.name,
       [TESTER_ID]: profiles.tester.name,
+      [RESEARCHER_ID]: profiles.researcher.name,
+      [TESTER2_ID]: profiles.tester2.name,
     },
   });
 
   dispatch({ type: 'layoutLoaded', layout });
   dispatch({ type: 'settingsLoaded', soundEnabled: false });
 
-  // PM and Analyst idle — will run mock scripts
+  // All agents start idle — will run mock scripts
   dispatch({ type: 'agentStatus', id: PM_ID, status: 'idle' });
   dispatch({ type: 'agentStatus', id: ANALYST_ID, status: 'idle' });
-  // Tester starts idle — driven by WebSocket (real Goose events) or mock fallback
   dispatch({ type: 'agentStatus', id: TESTER_ID, status: 'idle' });
+  dispatch({ type: 'agentStatus', id: RESEARCHER_ID, status: 'idle' });
+  dispatch({ type: 'agentStatus', id: TESTER2_ID, status: 'idle' });
 
-  // PM and Analyst always run mock scripts (background actors)
+  // All agents run mock scripts
   scheduleMockTestSession(dispatch);
+  scheduleMockResearchSession(dispatch, RESEARCHER_ID);
+  scheduleMockTester2Session(dispatch, TESTER2_ID);
 
   // Tester: connect to Goose WebSocket for real events
   // (if server is not available, Tester just stays idle — that's fine)

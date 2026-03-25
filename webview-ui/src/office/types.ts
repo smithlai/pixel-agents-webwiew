@@ -40,6 +40,8 @@ export const CharacterState = {
   IDLE: 'idle',
   WALK: 'walk',
   TYPE: 'type',
+  /** Standing in front of reportTo's desk, waiting for work to begin */
+  REPORT: 'report',
 } as const;
 export type CharacterState = (typeof CharacterState)[keyof typeof CharacterState];
 
@@ -192,4 +194,25 @@ export interface Character {
   folderName?: string;
   /** Matched agent profile key (e.g. 'pm', 'tester') */
   profileKey?: string;
+  /** Rest seat uid (from AgentProfile.restSeat), used for idle behavior */
+  restSeatId?: string;
+  /** Report-to agent's profile key (from AgentProfile.reportTo) */
+  reportToKey?: string;
+  /**
+   * Behavior queue — sequential walk-to targets.
+   * Each entry has a target (seatId or tile coords) and an action on arrival.
+   * 'report' = stand and wait, 'work' = sit and type, 'rest' = sit then idle.
+   */
+  behaviorQueue: Array<BehaviorStep>;
+}
+
+export interface BehaviorStep {
+  /** Target seat UID (used for 'work' and 'rest' actions) */
+  seatId?: string;
+  /** Target tile (used for 'report' — stand at a specific tile) */
+  tile?: { col: number; row: number };
+  /** Direction to face on arrival */
+  facingDir?: Direction;
+  /** What to do on arrival */
+  action: 'report' | 'work' | 'rest';
 }

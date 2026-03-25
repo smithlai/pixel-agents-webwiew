@@ -103,3 +103,30 @@ export function findPath(
   // No path found
   return [];
 }
+
+/**
+ * Find the nearest walkable tile adjacent to a target (for "stand near" behavior).
+ * Checks 4-connected neighbors of the target tile.
+ * Returns the adjacent tile, or null if none found.
+ */
+export function findAdjacentWalkable(
+  targetCol: number,
+  targetRow: number,
+  tileMap: TileType[][],
+  blockedTiles: Set<string>,
+): { col: number; row: number } | null {
+  const dirs = [
+    { dc: 0, dr: 1 },  // below (preferred — stand in front)
+    { dc: 0, dr: -1 }, // above
+    { dc: -1, dr: 0 }, // left
+    { dc: 1, dr: 0 },  // right
+  ];
+  for (const d of dirs) {
+    const nc = targetCol + d.dc;
+    const nr = targetRow + d.dr;
+    if (isWalkable(nc, nr, tileMap, blockedTiles)) {
+      return { col: nc, row: nr };
+    }
+  }
+  return null;
+}
