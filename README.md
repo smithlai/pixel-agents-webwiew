@@ -41,13 +41,14 @@ Agent 與房間/座位的綁定定義在 [`webview-ui/src/office/agentProfiles.t
 
 | Profile Key | 名稱 | 房間 | 工位 | 休息位 | 上司 |
 |-------------|------|------|------|--------|------|
-| `pm` | ST PM | 主管辦公室 | exec-chair | lobby-sofa1 | — |
+| `boss` | Boss | 主管辦公室 | exec-chair | exec-chair | — |
+| `pm` | ST PM | 主管辦公室 | exec-chair-pm | lobby-sofa1 | Boss |
 | `analyst` | ST Analyst | 分析室 | analysis-chair1 | lobby-sofa2 | PM |
 | `tester` | ST Tester | 測試實驗室 1 | lab1-chair1 | lobby-sofa3 | PM |
-| `droidclaw` | DroidClaw | 測試實驗室 1 | lab1-chair2 | lobby-sofa4 | Tester |
-| `researcher` | ST Researcher | 分析室 | analysis-chair2 | lobby-bench1 | Analyst |
-| `tester2` | ST Tester 2 | 測試實驗室 2 | lab2-chair1 | lobby-bench2 | PM |
-| `droidclaw2` | DroidClaw 2 | 測試實驗室 2 | lab2-chair2 | lobby-bench3 | Tester 2 |
+| `tester2` | ST Tester 2 | 測試實驗室 2 | lab2-chair1 | lobby-sofa4 | PM |
+| `tester3` | ST Tester 3 | 分析室 | analysis-chair2 | lobby-bench3 | PM |
+
+- **DroidClaw** 不是常駐 agent，而是 Tester 派出的 sub-agent。執行裝置操作時以光柱特效動態 spawn，完成後 despawn 消散。
 
 - **工位 / 休息位的 UID** 必須對應 [`default-layout-2.json`](webview-ui/public/assets/default-layout-2.json) 中的家具 `uid`
 - **reportTo** 決定空間行為動線：收到任務時先走到上司桌前匯報 → 開始工作後走回自己工位 → 結束後走去休息位

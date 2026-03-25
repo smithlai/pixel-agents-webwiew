@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { AgentStatusPanel } from './components/AgentStatusPanel.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
+import { CommandInput } from './components/CommandInput.js';
 import { DebugView } from './components/DebugView.js';
 import { ZoomControls } from './components/ZoomControls.js';
 import { PULSE_ANIMATION_DURATION_SEC } from './constants.js';
@@ -194,6 +195,39 @@ function App() {
     vscode.postMessage({ type: 'focusAgent', id: focusId });
   }, []);
 
+  const BOSS_ID = 100;
+  const handleBossCommand = useCallback((command: string) => {
+    // Boss activates: walk to desk, type the command, then go idle
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'agentStatus', id: BOSS_ID, status: 'active' },
+      }),
+    );
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'agentToolStart', id: BOSS_ID, toolId: 'boss-cmd', status: command },
+      }),
+    );
+    // After a few seconds, Boss finishes
+    setTimeout(() => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: 'agentToolDone', id: BOSS_ID, toolId: 'boss-cmd' },
+        }),
+      );
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: 'agentToolsClear', id: BOSS_ID },
+        }),
+      );
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: 'agentStatus', id: BOSS_ID, status: 'idle' },
+        }),
+      );
+    }, 6000);
+  }, []);
+
   const officeState = getOfficeState();
 
   // Force dependency on editorTickForKeyboard to propagate keyboard-triggered re-renders
@@ -292,6 +326,10 @@ function App() {
         onToggleAlwaysShowOverlay={handleToggleAlwaysShowOverlay}
         workspaceFolders={workspaceFolders}
       />
+
+      {!editor.isEditMode && !isDebugMode && isBrowserRuntime && (
+        <CommandInput onSubmit={handleBossCommand} />
+      )}
 
       {editor.isEditMode && editor.isDirty && (
         <EditActionBar editor={editor} editorState={editorState} />

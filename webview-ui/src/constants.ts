@@ -19,7 +19,7 @@ export const SEAT_REST_MIN_SEC = 120.0;
 export const SEAT_REST_MAX_SEC = 240.0;
 
 // ── Matrix Effect ────────────────────────────────────────────
-export const MATRIX_EFFECT_DURATION_SEC = 0.3;
+export const MATRIX_EFFECT_DURATION_SEC = 1.2;
 export const MATRIX_TRAIL_LENGTH = 6;
 export const MATRIX_SPRITE_COLS = 16;
 export const MATRIX_SPRITE_ROWS = 24;

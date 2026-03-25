@@ -50,13 +50,21 @@ export const ROOM_NAMES: Record<RoomId, string> = {
 // Seat UIDs must match default-layout-2.json furniture UIDs.
 
 export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
+  boss: {
+    name: 'Boss',
+    room: RoomId.EXECUTIVE_OFFICE,
+    workSeat: 'exec-chair',
+    restSeat: 'exec-chair',
+    palette: 0,
+  },
   pm: {
     name: 'ST PM',
     model: 'gpt-4.1',
     room: RoomId.EXECUTIVE_OFFICE,
-    workSeat: 'exec-chair',
+    workSeat: 'exec-chair-pm',
     restSeat: 'lobby-sofa1',
-    palette: 0,
+    reportTo: 'boss',
+    palette: 1,
   },
   analyst: {
     name: 'ST Analyst',
@@ -65,7 +73,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     workSeat: 'analysis-chair1',
     restSeat: 'lobby-sofa2',
     reportTo: 'pm',
-    palette: 1,
+    palette: 2,
   },
   tester: {
     name: 'ST Tester',
@@ -74,42 +82,24 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     workSeat: 'lab1-chair1',
     restSeat: 'lobby-sofa3',
     reportTo: 'pm',
-    palette: 2,
-  },
-  droidclaw: {
-    name: 'DroidClaw',
-    model: 'droidclaw',
-    room: RoomId.TEST_LAB_1,
-    workSeat: 'lab1-chair2',
-    restSeat: 'lobby-sofa4',
-    reportTo: 'tester',
     palette: 3,
-  },
-  researcher: {
-    name: 'ST Researcher',
-    model: 'gpt-4.1',
-    room: RoomId.ANALYSIS_ROOM,
-    workSeat: 'analysis-chair2',
-    restSeat: 'lobby-bench1',
-    reportTo: 'analyst',
-    palette: 4,
   },
   tester2: {
     name: 'ST Tester 2',
     model: 'gpt-4.1',
     room: RoomId.TEST_LAB_2,
     workSeat: 'lab2-chair1',
-    restSeat: 'lobby-bench2',
+    restSeat: 'lobby-sofa4',
     reportTo: 'pm',
-    palette: 5,
+    palette: 4,
   },
-  droidclaw2: {
-    name: 'DroidClaw 2',
-    model: 'droidclaw',
-    room: RoomId.TEST_LAB_2,
-    workSeat: 'lab2-chair2',
+  tester3: {
+    name: 'ST Tester 3',
+    model: 'gpt-4.1',
+    room: RoomId.ANALYSIS_ROOM,
+    workSeat: 'analysis-chair2',
     restSeat: 'lobby-bench3',
-    reportTo: 'tester2',
+    reportTo: 'pm',
     palette: 3,
   },
 };

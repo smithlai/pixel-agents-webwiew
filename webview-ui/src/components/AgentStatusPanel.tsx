@@ -291,7 +291,7 @@ export function AgentStatusPanel({
     <div
       className="panel-font"
       style={{
-        width: 560,
+        width: 680,
         height: '100%',
         background: 'var(--pixel-bg)',
         borderLeft: '2px solid var(--pixel-border)',

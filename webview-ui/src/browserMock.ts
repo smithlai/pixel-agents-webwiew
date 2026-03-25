@@ -26,6 +26,7 @@ import type {
   CharacterDirectionSprites,
 } from '../../shared/assets/types.ts';
 import { DEFAULT_PROFILES as profiles } from './office/agentProfiles.js';
+import { loadSavedLayout } from './vscodeApi.js';
 
 interface MockPayload {
   characters: CharacterDirectionSprites[];
@@ -226,9 +227,12 @@ export async function initBrowserMock(): Promise<void> {
         decodeFurnitureFromPng(base, catalog),
       ]);
 
-  const layout = assetIndex.defaultLayout
-    ? await fetch(`${base}assets/${assetIndex.defaultLayout}`).then((r) => r.json())
-    : null;
+  // Prefer saved layout from localStorage, fall back to default asset
+  const savedLayout = loadSavedLayout();
+  const layout = savedLayout
+    ?? (assetIndex.defaultLayout
+      ? await fetch(`${base}assets/${assetIndex.defaultLayout}`).then((r) => r.json())
+      : null);
 
   mockPayload = {
     characters,
@@ -317,30 +321,11 @@ function scheduleMockTestSession(dispatch: (data: unknown) => void): void {
     swapTool(TESTER_ID, 'tester-parse', 'tester-plan', '規劃測試步驟：5 步驟自動化腳本');
   });
 
-  // ── Tester dispatches DroidClaw (sub-agent) ──────────────────────────────────
+  // ── Tester dispatches DroidClaw (sub-agent spawn with matrix effect) ────────
   after(4000, () => {
-    swapTool(TESTER_ID, 'tester-plan', 'tester-dc', '派出 DroidClaw 執行裝置操作');
+    // Subtask: prefix triggers sub-agent spawn (matrix rain effect)
+    swapTool(TESTER_ID, 'tester-plan', 'tester-dc', 'Subtask:DroidClaw 執行裝置操作');
   });
-
-  const dcSteps = [
-    { id: 'dc-1', status: '操作裝置：點擊 Settings', delay: 4000 },
-    { id: 'dc-2', status: '操作裝置：點擊 System → Languages', delay: 3000 },
-    { id: 'dc-3', status: '操作裝置：點擊 Add a language', delay: 3500 },
-    { id: 'dc-4', status: '操作裝置：選擇 Français (法語)', delay: 3000 },
-    { id: 'dc-5', status: '操作裝置：確認語言切換完成', delay: 3500 },
-  ];
-
-  for (let i = 0; i < dcSteps.length; i++) {
-    const step = dcSteps[i];
-    const prev = i === 0 ? 'tester-dc' : dcSteps[i - 1].id;
-    after(step.delay, () => {
-      if (i === 0) {
-        dispatch({ type: 'agentToolStart', id: TESTER_ID, toolId: step.id, status: step.status });
-      } else {
-        swapTool(TESTER_ID, prev, step.id, step.status);
-      }
-    });
-  }
 
   // ── Mid-test: PM checks in ──────────────────────────────────────────────────
   after(2000, () => {
@@ -356,10 +341,8 @@ function scheduleMockTestSession(dispatch: (data: unknown) => void): void {
     goIdle(ANALYST_ID, 'analyst-report');
   });
 
-  // ── DroidClaw done, Tester verifies ─────────────────────────────────────────
-  const lastDc = dcSteps[dcSteps.length - 1];
-  after(3000, () => {
-    dispatch({ type: 'agentToolDone', id: TESTER_ID, toolId: lastDc.id });
+  // ── DroidClaw done (sub-agent despawn with matrix effect), Tester verifies ──
+  after(15000, () => {
     dispatch({ type: 'agentToolDone', id: TESTER_ID, toolId: 'tester-dc' });
     dispatch({ type: 'agentToolsClear', id: TESTER_ID });
     goWork(TESTER_ID, 'tester-verify', '驗證結果：比對螢幕截圖與預期畫面');
@@ -405,8 +388,8 @@ function scheduleMockTestSession(dispatch: (data: unknown) => void): void {
   });
 }
 
-/** Researcher agent mock — 獨立研究循環，向 Analyst 匯報 */
-function scheduleMockResearchSession(dispatch: (data: unknown) => void, id: number): void {
+/** Tester 3 agent mock — 分析室獨立測試循環 */
+function scheduleMockTester3Session(dispatch: (data: unknown) => void, id: number): void {
   let cursor = 0;
   function after(ms: number, fn: () => void): void {
     cursor += ms;
@@ -426,22 +409,22 @@ function scheduleMockResearchSession(dispatch: (data: unknown) => void, id: numb
     dispatch({ type: 'agentToolStart', id, toolId: newId, status });
   }
 
-  // Round 1: 研究 API 相容性
-  after(6000, () => goWork('r-read1', '查閱 API 文件：v2 → v3 變更清單'));
-  after(8000, () => swapTool('r-read1', 'r-analyze1', '分析相容性：12 個端點影響評估'));
-  after(7000, () => swapTool('r-analyze1', 'r-write1', '撰寫遷移建議書'));
-  after(6000, () => goIdle('r-write1'));
+  // Round 1: API 相容性驗證
+  after(6000, () => goWork('t3-read1', '讀取測試案例 STTL-300001 API 相容性'));
+  after(8000, () => swapTool('t3-read1', 't3-exec1', '執行 API 端點回歸測試：12 個端點'));
+  after(7000, () => swapTool('t3-exec1', 't3-verify1', '驗證結果：v2 → v3 回應格式比對'));
+  after(6000, () => goIdle('t3-verify1'));
 
-  // Round 2: 效能基準測試
-  after(5000, () => goWork('r-bench', '執行效能基準測試：回應時間對比'));
-  after(9000, () => swapTool('r-bench', 'r-chart', '生成效能對比圖表'));
-  after(5000, () => swapTool('r-chart', 'r-summary', '彙整研究摘要報告'));
-  after(6000, () => goIdle('r-summary'));
+  // Round 2: 效能壓力測試
+  after(5000, () => goWork('t3-perf', '執行效能壓力測試：並發 100 連線'));
+  after(9000, () => swapTool('t3-perf', 't3-perf-check', '驗證：P95 回應時間 < 200ms'));
+  after(5000, () => swapTool('t3-perf-check', 't3-perf-result', '✓ PASS — 效能測試通過'));
+  after(6000, () => goIdle('t3-perf-result'));
 
-  // Round 3: 安全掃描
-  after(8000, () => goWork('r-scan', '掃描第三方套件漏洞'));
-  after(10000, () => swapTool('r-scan', 'r-patch', '撰寫修補建議：3 個高風險項目'));
-  after(6000, () => goIdle('r-patch'));
+  // Round 3: 安全掃描測試
+  after(8000, () => goWork('t3-scan', '執行安全掃描測試：第三方套件漏洞'));
+  after(10000, () => swapTool('t3-scan', 't3-patch', '驗證修補方案：3 個高風險項目'));
+  after(6000, () => goIdle('t3-patch'));
 }
 
 /** Tester 2 agent mock — Lab 2 獨立測試循環，包含 DroidClaw 2 */
@@ -468,34 +451,11 @@ function scheduleMockTester2Session(dispatch: (data: unknown) => void, id: numbe
   // Round 1: 藍牙配對測試 STTL-200015
   after(8000, () => goWork('t2-read', '收到任務，讀取測試案例 STTL-200015 藍牙配對'));
   after(5000, () => swapTool('t2-read', 't2-plan', '規劃測試步驟：開啟藍牙 → 搜尋 → 配對 → 傳檔'));
-  after(4000, () => swapTool('t2-plan', 't2-dc', '派出 DroidClaw 2 執行裝置操作'));
+  // Subtask: prefix triggers sub-agent spawn (matrix rain effect)
+  after(4000, () => swapTool('t2-plan', 't2-dc', 'Subtask:DroidClaw 2 執行藍牙裝置操作'));
 
-  // DroidClaw 2 sub-agent steps
-  const dc2Steps = [
-    { tid: 't2-dc1', status: '操作裝置：開啟藍牙設定', delay: 4000 },
-    { tid: 't2-dc2', status: '操作裝置：搜尋周邊裝置', delay: 5000 },
-    { tid: 't2-dc3', status: '操作裝置：點擊配對目標裝置', delay: 3500 },
-    { tid: 't2-dc4', status: '操作裝置：確認配對 PIN 碼', delay: 3000 },
-    { tid: 't2-dc5', status: '操作裝置：傳送測試檔案', delay: 4500 },
-    { tid: 't2-dc6', status: '操作裝置：確認檔案接收完成', delay: 3000 },
-  ];
-
-  for (let i = 0; i < dc2Steps.length; i++) {
-    const step = dc2Steps[i];
-    const prev = i === 0 ? 't2-dc' : dc2Steps[i - 1].tid;
-    after(step.delay, () => {
-      if (i === 0) {
-        dispatch({ type: 'agentToolStart', id, toolId: step.tid, status: step.status });
-      } else {
-        swapTool(prev, step.tid, step.status);
-      }
-    });
-  }
-
-  // DroidClaw 2 done
-  const lastDc2 = dc2Steps[dc2Steps.length - 1];
-  after(3000, () => {
-    dispatch({ type: 'agentToolDone', id, toolId: lastDc2.tid });
+  // DroidClaw 2 sub-agent works for ~20s then done (despawn with matrix effect)
+  after(20000, () => {
     dispatch({ type: 'agentToolDone', id, toolId: 't2-dc' });
     dispatch({ type: 'agentToolsClear', id });
     goWork('t2-verify', '驗證結果：檔案完整性比對');
@@ -533,27 +493,30 @@ export function dispatchMockMessages(): void {
   dispatch({ type: 'furnitureAssetsLoaded', catalog: furnitureCatalog, sprites: furnitureSprites });
   // ── Goose mock agents (buffered before layoutLoaded) ─────────────────────────
   // Agent profiles define seat assignments and metadata (see agentProfiles.ts)
+  const BOSS_ID = 100;
   const PM_ID = 101;
   const ANALYST_ID = 102;
   const TESTER_ID = 103;
-  const RESEARCHER_ID = 104;
+  const TESTER3_ID = 104;
   const TESTER2_ID = 105;
 
   dispatch({
     type: 'existingAgents',
-    agents: [PM_ID, ANALYST_ID, TESTER_ID, RESEARCHER_ID, TESTER2_ID],
+    agents: [BOSS_ID, PM_ID, ANALYST_ID, TESTER_ID, TESTER3_ID, TESTER2_ID],
     agentMeta: {
+      [BOSS_ID]: { seatId: profiles.boss.workSeat },
       [PM_ID]: { seatId: profiles.pm.workSeat },
       [ANALYST_ID]: { seatId: profiles.analyst.workSeat },
       [TESTER_ID]: { seatId: profiles.tester.workSeat },
-      [RESEARCHER_ID]: { seatId: profiles.researcher.workSeat },
+      [TESTER3_ID]: { seatId: profiles.tester3.workSeat },
       [TESTER2_ID]: { seatId: profiles.tester2.workSeat },
     },
     folderNames: {
+      [BOSS_ID]: profiles.boss.name,
       [PM_ID]: profiles.pm.name,
       [ANALYST_ID]: profiles.analyst.name,
       [TESTER_ID]: profiles.tester.name,
-      [RESEARCHER_ID]: profiles.researcher.name,
+      [TESTER3_ID]: profiles.tester3.name,
       [TESTER2_ID]: profiles.tester2.name,
     },
   });
@@ -561,16 +524,17 @@ export function dispatchMockMessages(): void {
   dispatch({ type: 'layoutLoaded', layout });
   dispatch({ type: 'settingsLoaded', soundEnabled: false });
 
-  // All agents start idle — will run mock scripts
+  // All agents start idle — Boss stays idle unless user types command
+  dispatch({ type: 'agentStatus', id: BOSS_ID, status: 'idle' });
   dispatch({ type: 'agentStatus', id: PM_ID, status: 'idle' });
   dispatch({ type: 'agentStatus', id: ANALYST_ID, status: 'idle' });
   dispatch({ type: 'agentStatus', id: TESTER_ID, status: 'idle' });
-  dispatch({ type: 'agentStatus', id: RESEARCHER_ID, status: 'idle' });
+  dispatch({ type: 'agentStatus', id: TESTER3_ID, status: 'idle' });
   dispatch({ type: 'agentStatus', id: TESTER2_ID, status: 'idle' });
 
-  // All agents run mock scripts
+  // All agents except Boss run mock scripts
   scheduleMockTestSession(dispatch);
-  scheduleMockResearchSession(dispatch, RESEARCHER_ID);
+  scheduleMockTester3Session(dispatch, TESTER3_ID);
   scheduleMockTester2Session(dispatch, TESTER2_ID);
 
   // Tester: connect to Goose WebSocket for real events

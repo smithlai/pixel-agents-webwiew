@@ -60,6 +60,7 @@ export function BottomToolbar({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
   const [hoveredFolder, setHoveredFolder] = useState<number | null>(null);
+  const [collapsed, setCollapsed] = useState(true);
   const folderPickerRef = useRef<HTMLDivElement>(null);
 
   // Close folder picker on outside click
@@ -89,8 +90,39 @@ export function BottomToolbar({
     vscode.postMessage({ type: 'openClaude', folderPath: folder.path });
   };
 
+  if (collapsed) {
+    return (
+      <div style={panelStyle}>
+        <button
+          onClick={() => setCollapsed(false)}
+          onMouseEnter={() => setHovered('expand')}
+          onMouseLeave={() => setHovered(null)}
+          style={{
+            ...btnBase,
+            background: hovered === 'expand' ? 'var(--pixel-btn-hover-bg)' : btnBase.background,
+          }}
+          title="展開工具列"
+        >
+          ☰
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={panelStyle}>
+      <button
+        onClick={() => { setCollapsed(true); setIsSettingsOpen(false); setIsFolderPickerOpen(false); }}
+        onMouseEnter={() => setHovered('collapse')}
+        onMouseLeave={() => setHovered(null)}
+        style={{
+          ...btnBase,
+          background: hovered === 'collapse' ? 'var(--pixel-btn-hover-bg)' : btnBase.background,
+        }}
+        title="收折工具列"
+      >
+        ✕
+      </button>
       <div ref={folderPickerRef} style={{ position: 'relative' }}>
         <button
           onClick={handleAgentClick}
