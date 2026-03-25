@@ -51,16 +51,16 @@ export const ROOM_NAMES: Record<RoomId, string> = {
 
 export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
   pm: {
-    name: 'Goose PM',
-    model: 'goose gpt-4.1',
+    name: 'ST PM',
+    model: 'gpt-4.1',
     room: RoomId.EXECUTIVE_OFFICE,
     workSeat: 'exec-chair',
     restSeat: 'lobby-sofa1',
     palette: 0,
   },
   analyst: {
-    name: 'Goose Analyst',
-    model: 'goose gpt-4.1',
+    name: 'ST Analyst',
+    model: 'gpt-4.1',
     room: RoomId.ANALYSIS_ROOM,
     workSeat: 'analysis-chair1',
     restSeat: 'lobby-sofa2',
@@ -68,8 +68,8 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     palette: 1,
   },
   tester: {
-    name: 'Goose Tester',
-    model: 'goose gpt-4.1',
+    name: 'ST Tester',
+    model: 'gpt-4.1',
     room: RoomId.TEST_LAB_1,
     workSeat: 'lab1-chair1',
     restSeat: 'lobby-sofa3',
@@ -78,7 +78,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
   },
   droidclaw: {
     name: 'DroidClaw',
-    model: 'droidclaw gpt-4.1',
+    model: 'droidclaw',
     room: RoomId.TEST_LAB_1,
     workSeat: 'lab1-chair2',
     restSeat: 'lobby-sofa4',
@@ -86,8 +86,8 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     palette: 3,
   },
   researcher: {
-    name: 'Goose Researcher',
-    model: 'goose gpt-4.1',
+    name: 'ST Researcher',
+    model: 'gpt-4.1',
     room: RoomId.ANALYSIS_ROOM,
     workSeat: 'analysis-chair2',
     restSeat: 'lobby-bench1',
@@ -95,8 +95,8 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     palette: 4,
   },
   tester2: {
-    name: 'Goose Tester 2',
-    model: 'goose gpt-4.1',
+    name: 'ST Tester 2',
+    model: 'gpt-4.1',
     room: RoomId.TEST_LAB_2,
     workSeat: 'lab2-chair1',
     restSeat: 'lobby-bench2',
@@ -105,7 +105,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
   },
   droidclaw2: {
     name: 'DroidClaw 2',
-    model: 'droidclaw gpt-4.1',
+    model: 'droidclaw',
     room: RoomId.TEST_LAB_2,
     workSeat: 'lab2-chair2',
     restSeat: 'lobby-bench3',

@@ -41,12 +41,12 @@ Agent 與房間/座位的綁定定義在 [`webview-ui/src/office/agentProfiles.t
 
 | Profile Key | 名稱 | 房間 | 工位 | 休息位 | 上司 |
 |-------------|------|------|------|--------|------|
-| `pm` | Goose PM | 主管辦公室 | exec-chair | lobby-sofa1 | — |
-| `analyst` | Goose Analyst | 分析室 | analysis-chair1 | lobby-sofa2 | PM |
-| `tester` | Goose Tester | 測試實驗室 1 | lab1-chair1 | lobby-sofa3 | PM |
+| `pm` | ST PM | 主管辦公室 | exec-chair | lobby-sofa1 | — |
+| `analyst` | ST Analyst | 分析室 | analysis-chair1 | lobby-sofa2 | PM |
+| `tester` | ST Tester | 測試實驗室 1 | lab1-chair1 | lobby-sofa3 | PM |
 | `droidclaw` | DroidClaw | 測試實驗室 1 | lab1-chair2 | lobby-sofa4 | Tester |
-| `researcher` | Goose Researcher | 分析室 | analysis-chair2 | lobby-bench1 | Analyst |
-| `tester2` | Goose Tester 2 | 測試實驗室 2 | lab2-chair1 | lobby-bench2 | PM |
+| `researcher` | ST Researcher | 分析室 | analysis-chair2 | lobby-bench1 | Analyst |
+| `tester2` | ST Tester 2 | 測試實驗室 2 | lab2-chair1 | lobby-bench2 | PM |
 | `droidclaw2` | DroidClaw 2 | 測試實驗室 2 | lab2-chair2 | lobby-bench3 | Tester 2 |
 
 - **工位 / 休息位的 UID** 必須對應 [`default-layout-2.json`](webview-ui/public/assets/default-layout-2.json) 中的家具 `uid`
