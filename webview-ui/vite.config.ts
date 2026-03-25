@@ -99,15 +99,19 @@ function browserMockAssetsPlugin(): Plugin {
   };
 }
 
-// Goose JSONL watch directory — defaults to MobileGoose/.runtime/sessions
-const gooseWatchDir = process.env.GOOSE_WATCH_DIR
-  ?? path.resolve(__dirname, '../../MobileGoose/.runtime/sessions');
+// Goose JSONL watch directory — must be set via GOOSE_WATCH_DIR env var
+const gooseWatchDir = process.env.GOOSE_WATCH_DIR ?? '';
+if (gooseWatchDir) {
+  console.log(`[GooseOffice] GOOSE_WATCH_DIR = ${gooseWatchDir}`);
+} else {
+  console.log('[GooseOffice] GOOSE_WATCH_DIR 未設定 — Goose 事件串流停用，僅使用 mock 模式');
+}
 
 export default defineConfig({
   plugins: [
     react(),
     browserMockAssetsPlugin(),
-    goosePlugin({ watchDir: gooseWatchDir }),
+    ...(gooseWatchDir ? [goosePlugin({ watchDir: gooseWatchDir })] : []),
   ],
   build: {
     outDir: '../dist/webview',

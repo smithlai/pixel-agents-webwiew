@@ -12,8 +12,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const outDir = process.env.GOOSE_WATCH_DIR
-  ?? path.resolve(__dirname, '../../MobileGoose/.runtime/sessions');
+const outDir = process.env.GOOSE_WATCH_DIR;
+if (!outDir) {
+  console.error('錯誤：請設定 GOOSE_WATCH_DIR 環境變數，例如：');
+  console.error('  GOOSE_WATCH_DIR=/path/to/sessions npx tsx server/simulate-goose.ts');
+  process.exit(1);
+}
 const testrun = 'STTL-181126_simulate';
 const outFile = path.join(outDir, `goose-events-${testrun}.jsonl`);
 

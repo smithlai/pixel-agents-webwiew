@@ -1,3 +1,88 @@
+# GooseOffice — Goose AI Agent 像素風工作狀態儀表板
+
+本專案是 [pixel-agents](https://github.com/pablodelucca/pixel-agents) 的 fork，將 webview-ui 抽出為獨立 web app，作為 **Goose AI Agent** 的像素風工作狀態儀表板。
+
+- **上游**：[pablodelucca/pixel-agents](https://github.com/pablodelucca/pixel-agents)（MIT License）
+- **姊妹專案**：MobileGoose（Goose + DroidClaw 測試框架）
+
+## 快速啟動
+
+```bash
+cd webview-ui
+npm install
+npm run dev
+# 瀏覽器開啟 http://localhost:5173
+```
+
+不需要 VS Code。啟動後自動載入 mock 資料（5 個 Agent 的完整 demo 動畫）。
+
+## 連接真實 Goose 事件串流
+
+如果有 Goose session 在運行，dev server 會透過 WebSocket 自動推送即時事件。
+
+**設定事件來源路徑**（Goose JSONL session 目錄）：
+
+```bash
+GOOSE_WATCH_DIR=/path/to/goose/sessions npm run dev
+```
+
+未設定 `GOOSE_WATCH_DIR` 時，Goose 事件串流停用，僅使用 mock 模式。
+
+也可以用模擬腳本產生事件（原理：定時往指定目錄 append JSONL 事件，走完整的 檔案→watcher→WebSocket→瀏覽器 端對端路徑）：
+
+```bash
+# 在另一個終端，需同時設定相同的 GOOSE_WATCH_DIR
+GOOSE_WATCH_DIR=/path/to/goose/sessions npx tsx ../server/simulate-goose.ts
+```
+
+## Agent Profile 客製化
+
+Agent 與房間/座位的綁定定義在 [`webview-ui/src/office/agentProfiles.ts`](webview-ui/src/office/agentProfiles.ts)：
+
+| Profile Key | 名稱 | 房間 | 工位 | 休息位 | 上司 |
+|-------------|------|------|------|--------|------|
+| `pm` | Goose PM | 主管辦公室 | exec-chair | lobby-sofa1 | — |
+| `analyst` | Goose Analyst | 分析室 | analysis-chair1 | lobby-sofa2 | PM |
+| `tester` | Goose Tester | 測試實驗室 1 | lab1-chair1 | lobby-sofa3 | PM |
+| `droidclaw` | DroidClaw | 測試實驗室 1 | lab1-chair2 | lobby-sofa4 | Tester |
+| `researcher` | Goose Researcher | 分析室 | analysis-chair2 | lobby-bench1 | Analyst |
+| `tester2` | Goose Tester 2 | 測試實驗室 2 | lab2-chair1 | lobby-bench2 | PM |
+| `droidclaw2` | DroidClaw 2 | 測試實驗室 2 | lab2-chair2 | lobby-bench3 | Tester 2 |
+
+- **工位 / 休息位的 UID** 必須對應 [`default-layout-2.json`](webview-ui/public/assets/default-layout-2.json) 中的家具 `uid`
+- **reportTo** 決定空間行為動線：收到任務時先走到上司桌前匯報 → 開始工作後走回自己工位 → 結束後走去休息位
+
+## 房間佈局客製化
+
+辦公室佈局儲存在 `webview-ui/public/assets/default-layout-2.json`（32×28 格線）。可透過內建的 Layout Editor 修改（啟動後點擊「Layout」按鈕），或直接編輯 JSON。
+
+目前房間配置：
+- **主管辦公室**（Executive Office）— 右上角
+- **測試實驗室 1 & 2**（Test Lab）— 左上方
+- **分析室**（Analysis Room）— 右下方
+- **休息吧**（Lobby Bar）— 下方
+
+## 技術架構
+
+```
+webview-ui/          — React + Vite 前端（可獨立運行）
+server/              — Goose 事件串流後端（Vite plugin）
+  gooseWatcher.ts    — JSONL 檔案監視
+  eventTranslator.ts — GooseEvent → webview 訊息轉譯
+  viteGoosePlugin.ts — WebSocket 升級處理
+shared/assets/       — PNG 解碼器、資產載入（extension + browser 通用）
+```
+
+**雙模式運行**：
+- **瀏覽器模式**：Vite dev server + WebSocket 事件串流 + mock fallback
+- **VS Code 模式**：原版 extension postMessage IPC（見下方原版說明）
+
+---
+
+# 以下為原版 pixel-agents README
+
+---
+
 <h1 align="center">
     <a href="https://github.com/pablodelucca/pixel-agents/discussions">
         <img src="webview-ui/public/banner.png" alt="Pixel Agents">
