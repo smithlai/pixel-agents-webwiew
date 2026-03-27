@@ -21,6 +21,10 @@ import {
   GRID_LINE_COLOR,
   HOVERED_OUTLINE_ALPHA,
   OUTLINE_Z_SORT_OFFSET,
+  PATH_OVERLAY_ALPHA,
+  PATH_OVERLAY_COLOR,
+  PATH_OVERLAY_DASH,
+  PATH_OVERLAY_DOT_RADIUS_PX,
   ROTATE_BUTTON_BG,
   SEAT_AVAILABLE_COLOR,
   SEAT_BUSY_COLOR,
@@ -515,6 +519,53 @@ export function renderBubbles(
   }
 }
 
+/** 畫出每個移動中角色的路徑虛線與終點圓點 */
+function renderPathOverlay(
+  ctx: CanvasRenderingContext2D,
+  characters: Character[],
+  offsetX: number,
+  offsetY: number,
+  zoom: number,
+): void {
+  const half = (TILE_SIZE * zoom) / 2;
+
+  for (const ch of characters) {
+    if (ch.path.length === 0 || ch.matrixEffect) continue;
+
+    ctx.save();
+    ctx.globalAlpha = PATH_OVERLAY_ALPHA;
+    ctx.strokeStyle = PATH_OVERLAY_COLOR;
+    ctx.fillStyle = PATH_OVERLAY_COLOR;
+    ctx.lineWidth = zoom;
+    ctx.setLineDash(PATH_OVERLAY_DASH.map((v) => v * zoom));
+
+    ctx.beginPath();
+    ctx.moveTo(offsetX + ch.x * zoom, offsetY + ch.y * zoom);
+    for (const step of ch.path) {
+      ctx.lineTo(
+        offsetX + step.col * TILE_SIZE * zoom + half,
+        offsetY + step.row * TILE_SIZE * zoom + half,
+      );
+    }
+    ctx.stroke();
+
+    // 終點圓點
+    const last = ch.path[ch.path.length - 1];
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(
+      offsetX + last.col * TILE_SIZE * zoom + half,
+      offsetY + last.row * TILE_SIZE * zoom + half,
+      PATH_OVERLAY_DOT_RADIUS_PX * zoom,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+
+    ctx.restore();
+  }
+}
+
 export interface ButtonBounds {
   /** Center X in device pixels */
   cx: number;
@@ -614,6 +665,9 @@ export function renderFrame(
   const selectedId = selection?.selectedAgentId ?? null;
   const hoveredId = selection?.hoveredAgentId ?? null;
   renderScene(ctx, allFurniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId);
+
+  // Path overlays (below bubbles, only when moving)
+  renderPathOverlay(ctx, characters, offsetX, offsetY, zoom);
 
   // Speech bubbles (always on top of characters)
   renderBubbles(ctx, characters, offsetX, offsetY, zoom);

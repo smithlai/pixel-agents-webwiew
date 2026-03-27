@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { Plugin } from 'vite';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 
 import { goosePlugin } from '../server/viteGoosePlugin.ts';
 import { buildAssetIndex, buildFurnitureCatalog } from '../shared/assets/build.ts';
@@ -99,23 +99,28 @@ function browserMockAssetsPlugin(): Plugin {
   };
 }
 
-// Goose JSONL watch directory — must be set via GOOSE_WATCH_DIR env var
-const gooseWatchDir = process.env.GOOSE_WATCH_DIR ?? '';
-if (gooseWatchDir) {
-  console.log(`[GooseOffice] GOOSE_WATCH_DIR = ${gooseWatchDir}`);
-} else {
-  console.log('[GooseOffice] GOOSE_WATCH_DIR 未設定 — Goose 事件串流停用，僅使用 mock 模式');
-}
+export default defineConfig(({ mode }) => {
+  // 載入 .env / .env.local / .env.[mode].local 等環境變數檔
+  const env = loadEnv(mode, process.cwd(), '');
+  const gooseWatchDir = env.GOOSE_WATCH_DIR ?? process.env.GOOSE_WATCH_DIR ?? '';
 
-export default defineConfig({
-  plugins: [
-    react(),
-    browserMockAssetsPlugin(),
-    ...(gooseWatchDir ? [goosePlugin({ watchDir: gooseWatchDir })] : []),
-  ],
-  build: {
-    outDir: '../dist/webview',
-    emptyOutDir: true,
-  },
-  base: './',
+  if (gooseWatchDir) {
+    console.log(`[GooseOffice] GOOSE_WATCH_DIR = ${gooseWatchDir}`);
+  } else {
+    console.log('[GooseOffice] GOOSE_WATCH_DIR 未設定 — Goose 事件串流停用，僅使用 mock 模式');
+    console.log('[GooseOffice] 提示：複製 .env.example 為 .env.local 並填入路徑即可啟用');
+  }
+
+  return {
+    plugins: [
+      react(),
+      browserMockAssetsPlugin(),
+      ...(gooseWatchDir ? [goosePlugin({ watchDir: gooseWatchDir })] : []),
+    ],
+    build: {
+      outDir: '../dist/webview',
+      emptyOutDir: true,
+    },
+    base: './',
+  };
 });

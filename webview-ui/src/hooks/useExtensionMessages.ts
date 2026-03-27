@@ -200,7 +200,16 @@ export function useExtensionMessages(
         const status = msg.status as string;
         setAgentTools((prev) => {
           const list = prev[id] || [];
-          if (list.some((t) => t.toolId === toolId)) return prev;
+          const existingIdx = list.findIndex((t) => t.toolId === toolId);
+          if (existingIdx !== -1) {
+            // tool_args update pattern: same toolId re-sent after Done → update status
+            if (list[existingIdx].done) {
+              const updated = [...list];
+              updated[existingIdx] = { ...list[existingIdx], status, done: false };
+              return { ...prev, [id]: updated };
+            }
+            return prev;
+          }
           return { ...prev, [id]: [...list, { toolId, status, done: false }] };
         });
         const toolName = extractToolName(status);

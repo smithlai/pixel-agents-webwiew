@@ -532,19 +532,36 @@ export function dispatchMockMessages(): void {
   dispatch({ type: 'agentStatus', id: TESTER3_ID, status: 'idle' });
   dispatch({ type: 'agentStatus', id: TESTER2_ID, status: 'idle' });
 
-  // All agents except Boss run mock scripts
-  scheduleMockTestSession(dispatch);
+  // Tester2 and Tester3 always run mock scripts
   scheduleMockTester3Session(dispatch, TESTER3_ID);
   scheduleMockTester2Session(dispatch, TESTER2_ID);
 
-  // Tester: connect to Goose WebSocket for real events
-  // (if server is not available, Tester just stays idle — that's fine)
-  import('./gooseSocket.js').then(({ initGooseSocket }) => {
-    initGooseSocket();
-    console.log('[BrowserMock] Goose WebSocket client started for Tester agent');
-  }).catch(() => {
-    console.log('[BrowserMock] Goose WebSocket not available, Tester stays in mock mode');
-  });
+  // Tester (ID 103): use real Goose events if server is watching, otherwise run mock
+  // Check /goose/status — if server is watching real files, skip mock to avoid conflict
+  fetch('/goose/status')
+    .then((r) => r.json() as Promise<{ watching: string[] }>)
+    .then(({ watching }) => {
+      if (watching.length > 0) {
+        console.log('[BrowserMock] Goose server is active — skipping Tester mock, using real events');
+        import('./gooseSocket.js').then(({ initGooseSocket }) => {
+          initGooseSocket();
+          console.log('[BrowserMock] Goose WebSocket client started for Tester agent');
+        }).catch(() => {
+          console.log('[BrowserMock] Goose WebSocket not available');
+        });
+      } else {
+        console.log('[BrowserMock] Goose server idle — running Tester mock session');
+        scheduleMockTestSession(dispatch);
+        import('./gooseSocket.js').then(({ initGooseSocket }) => {
+          initGooseSocket();
+        }).catch(() => {});
+      }
+    })
+    .catch(() => {
+      // /goose/status not reachable (no Goose plugin) — run full mock
+      console.log('[BrowserMock] Goose server not available — running Tester mock session');
+      scheduleMockTestSession(dispatch);
+    });
 
   console.log('[BrowserMock] Messages dispatched (with Goose mock agents)');
 }

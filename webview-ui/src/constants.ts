@@ -99,6 +99,12 @@ export const NOTIFICATION_VOLUME = 0.14;
 // ── Furniture Animation ─────────────────────────────────────
 export const FURNITURE_ANIM_INTERVAL_SEC = 0.2;
 
+// ── Path Overlay ─────────────────────────────────────────────
+export const PATH_OVERLAY_COLOR = 'rgba(140, 220, 255, 1)';
+export const PATH_OVERLAY_ALPHA = 0.38;
+export const PATH_OVERLAY_DOT_RADIUS_PX = 2;
+export const PATH_OVERLAY_DASH: [number, number] = [2, 2];
+
 // ── Game Logic ───────────────────────────────────────────────
 export const MAX_DELTA_TIME_SEC = 0.1;
 export const WAITING_BUBBLE_DURATION_SEC = 2.0;
