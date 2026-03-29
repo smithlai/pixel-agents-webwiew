@@ -103,6 +103,7 @@ export default defineConfig(({ mode }) => {
   // 載入 .env / .env.local / .env.[mode].local 等環境變數檔
   const env = loadEnv(mode, process.cwd(), '');
   const gooseWatchDir = env.GOOSE_WATCH_DIR ?? process.env.GOOSE_WATCH_DIR ?? '';
+  const mobileGooseDir = env.MOBILE_GOOSE_DIR ?? process.env.MOBILE_GOOSE_DIR ?? '';
 
   if (gooseWatchDir) {
     console.log(`[GooseOffice] GOOSE_WATCH_DIR = ${gooseWatchDir}`);
@@ -110,12 +111,15 @@ export default defineConfig(({ mode }) => {
     console.log('[GooseOffice] GOOSE_WATCH_DIR 未設定 — Goose 事件串流停用，僅使用 mock 模式');
     console.log('[GooseOffice] 提示：複製 .env.example 為 .env.local 並填入路徑即可啟用');
   }
+  if (mobileGooseDir) {
+    console.log(`[GooseOffice] MOBILE_GOOSE_DIR = ${mobileGooseDir}`);
+  }
 
   return {
     plugins: [
       react(),
       browserMockAssetsPlugin(),
-      ...(gooseWatchDir ? [goosePlugin({ watchDir: gooseWatchDir })] : []),
+      ...(gooseWatchDir ? [goosePlugin({ watchDir: gooseWatchDir, mobileGooseDir: mobileGooseDir || undefined })] : []),
     ],
     build: {
       outDir: '../dist/webview',

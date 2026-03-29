@@ -208,6 +208,17 @@ function App() {
         data: { type: 'agentToolStart', id: BOSS_ID, toolId: 'boss-cmd', status: command },
       }),
     );
+    // Spawn real MobileGoose session if server supports it
+    fetch('/goose/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ command }),
+    }).then((r) => {
+      if (r.ok) console.log(`[Boss] MobileGoose session started: ${command}`);
+      else console.warn(`[Boss] /goose/run returned ${r.status}`);
+    }).catch(() => {
+      console.log('[Boss] /goose/run not available — visual only');
+    });
     // After a few seconds, Boss finishes
     setTimeout(() => {
       window.dispatchEvent(

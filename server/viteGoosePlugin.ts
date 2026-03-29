@@ -8,6 +8,9 @@
  * 4. Serves /goose/status as a health check endpoint
  */
 
+import * as child_process from 'child_process';
+import * as path from 'path';
+
 import type { Plugin, ViteDevServer } from 'vite';
 
 import { EventTranslator } from './eventTranslator.ts';
@@ -18,10 +21,12 @@ export interface GoosePluginOptions {
   watchDir: string;
   /** Agent ID for the Goose character in the webview (default: 103 = Tester) */
   agentId?: number;
+  /** MobileGoose root directory — enables POST /goose/run to spawn test sessions */
+  mobileGooseDir?: string;
 }
 
 export function goosePlugin(options: GoosePluginOptions): Plugin {
-  const { watchDir, agentId = 103 } = options;
+  const { watchDir, agentId = 103, mobileGooseDir } = options;
 
   let watcher: GooseWatcher | null = null;
 
@@ -137,6 +142,54 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
           }),
         );
       });
+
+      // POST /goose/run — spawn a MobileGoose session with the given command
+      if (mobileGooseDir) {
+        const resolvedGooseDir = path.resolve(process.cwd(), mobileGooseDir);
+        const batPath = path.join(resolvedGooseDir, 'start-goose.bat');
+
+        server.middlewares.use(`${base}/goose/run`, (req, res) => {
+          if (req.method !== 'POST') {
+            res.statusCode = 405;
+            res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+            return;
+          }
+
+          let body = '';
+          req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+          req.on('end', () => {
+            let command = '';
+            try {
+              command = (JSON.parse(body) as { command?: string }).command?.trim() ?? '';
+            } catch {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'Invalid JSON' }));
+              return;
+            }
+
+            if (!command) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'command is required' }));
+              return;
+            }
+
+            console.log(`[GoosePlugin] Spawning MobileGoose: ${command}`);
+            child_process.spawn('cmd', ['/c', batPath, 'run', command], {
+              cwd: resolvedGooseDir,
+              detached: true,
+              stdio: 'ignore',
+            }).unref();
+
+            res.statusCode = 202;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true, command }));
+          });
+        });
+
+        console.log(`[GoosePlugin] /goose/run enabled — MobileGoose dir: ${resolvedGooseDir}`);
+      }
 
       console.log(`[GoosePlugin] Ready — watching ${watchDir}`);
     },
