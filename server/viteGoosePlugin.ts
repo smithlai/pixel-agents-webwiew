@@ -176,10 +176,23 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             }
 
             console.log(`[GoosePlugin] Spawning MobileGoose: ${command}`);
-            child_process.spawn('cmd', ['/c', batPath, 'run', command], {
-              cwd: resolvedGooseDir,
-              detached: true,
+            // Use PowerShell Start-Process -WindowStyle Hidden so the entire
+            // process tree (bat + python + goose) stays invisible on Windows.
+            // direct spawn('cmd', ..., { detached: true }) always creates a new
+            // console window regardless of windowsHide.
+            const safeDir = resolvedGooseDir.replace(/'/g, "''");
+            const safeBat = batPath.replace(/'/g, "''");
+            const safeCmd = command.replace(/'/g, "''");
+            const psCommand =
+              `Start-Process -FilePath cmd` +
+              ` -ArgumentList @('/c','${safeBat}','run','-t','${safeCmd}')` +
+              ` -WorkingDirectory '${safeDir}'` +
+              ` -WindowStyle Hidden`;
+            child_process.spawn('powershell', [
+              '-NoProfile', '-NonInteractive', '-Command', psCommand,
+            ], {
               stdio: 'ignore',
+              windowsHide: true,
             }).unref();
 
             res.statusCode = 202;
