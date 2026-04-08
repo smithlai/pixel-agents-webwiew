@@ -213,9 +213,14 @@ function App() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ command }),
-    }).then((r) => {
-      if (r.ok) console.log(`[Boss] MobileGoose session started: ${command}`);
-      else console.warn(`[Boss] /goose/run returned ${r.status}`);
+    }).then(async (r) => {
+      if (r.ok) {
+        const result = await r.json() as { serial?: string; agentId?: number; testrun?: string };
+        console.log(`[Boss] MobileGoose started: ${command} → ${result.serial} (agent ${result.agentId})`);
+      } else {
+        const err = await r.json().catch(() => ({ error: 'unknown' })) as { error?: string; message?: string };
+        console.warn(`[Boss] /goose/run failed: ${err.error} — ${err.message ?? ''}`);
+      }
     }).catch(() => {
       console.log('[Boss] /goose/run not available — visual only');
     });

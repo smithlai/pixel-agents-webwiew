@@ -41,6 +41,13 @@ interface MockPayload {
 
 let mockPayload: MockPayload | null = null;
 
+/**
+ * Enable/disable mock agents (PM, Analyst, Tester, Tester2, Tester3).
+ * Set to false when using real ADB device Testers.
+ * Boss (ID 100) is always present regardless of this flag.
+ */
+export const ENABLE_MOCK_AGENTS = false;
+
 // ── PNG decode helpers (browser fallback) ───────────────────────────────────
 
 interface DecodedPng {
@@ -500,41 +507,51 @@ export function dispatchMockMessages(): void {
   const TESTER3_ID = 104;
   const TESTER2_ID = 105;
 
+  // Boss is always present; other mock agents gate on ENABLE_MOCK_AGENTS
+  const mockAgentIds = ENABLE_MOCK_AGENTS
+    ? [BOSS_ID, PM_ID, ANALYST_ID, TESTER_ID, TESTER3_ID, TESTER2_ID]
+    : [BOSS_ID];
+  const mockMeta: Record<number, { seatId: string }> = {
+    [BOSS_ID]: { seatId: profiles.boss.workSeat },
+  };
+  const mockNames: Record<number, string> = {
+    [BOSS_ID]: profiles.boss.name,
+  };
+  if (ENABLE_MOCK_AGENTS) {
+    mockMeta[PM_ID] = { seatId: profiles.pm.workSeat };
+    mockMeta[ANALYST_ID] = { seatId: profiles.analyst.workSeat };
+    mockMeta[TESTER_ID] = { seatId: profiles.tester.workSeat };
+    mockMeta[TESTER3_ID] = { seatId: profiles.tester3.workSeat };
+    mockMeta[TESTER2_ID] = { seatId: profiles.tester2.workSeat };
+    mockNames[PM_ID] = profiles.pm.name;
+    mockNames[ANALYST_ID] = profiles.analyst.name;
+    mockNames[TESTER_ID] = profiles.tester.name;
+    mockNames[TESTER3_ID] = profiles.tester3.name;
+    mockNames[TESTER2_ID] = profiles.tester2.name;
+  }
+
   dispatch({
     type: 'existingAgents',
-    agents: [BOSS_ID, PM_ID, ANALYST_ID, TESTER_ID, TESTER3_ID, TESTER2_ID],
-    agentMeta: {
-      [BOSS_ID]: { seatId: profiles.boss.workSeat },
-      [PM_ID]: { seatId: profiles.pm.workSeat },
-      [ANALYST_ID]: { seatId: profiles.analyst.workSeat },
-      [TESTER_ID]: { seatId: profiles.tester.workSeat },
-      [TESTER3_ID]: { seatId: profiles.tester3.workSeat },
-      [TESTER2_ID]: { seatId: profiles.tester2.workSeat },
-    },
-    folderNames: {
-      [BOSS_ID]: profiles.boss.name,
-      [PM_ID]: profiles.pm.name,
-      [ANALYST_ID]: profiles.analyst.name,
-      [TESTER_ID]: profiles.tester.name,
-      [TESTER3_ID]: profiles.tester3.name,
-      [TESTER2_ID]: profiles.tester2.name,
-    },
+    agents: mockAgentIds,
+    agentMeta: mockMeta,
+    folderNames: mockNames,
   });
 
   dispatch({ type: 'layoutLoaded', layout });
   dispatch({ type: 'settingsLoaded', soundEnabled: false });
 
-  // All agents start idle — Boss stays idle unless user types command
+  // All present agents start idle
   dispatch({ type: 'agentStatus', id: BOSS_ID, status: 'idle' });
-  dispatch({ type: 'agentStatus', id: PM_ID, status: 'idle' });
-  dispatch({ type: 'agentStatus', id: ANALYST_ID, status: 'idle' });
-  dispatch({ type: 'agentStatus', id: TESTER_ID, status: 'idle' });
-  dispatch({ type: 'agentStatus', id: TESTER3_ID, status: 'idle' });
-  dispatch({ type: 'agentStatus', id: TESTER2_ID, status: 'idle' });
+  if (ENABLE_MOCK_AGENTS) {
+    dispatch({ type: 'agentStatus', id: PM_ID, status: 'idle' });
+    dispatch({ type: 'agentStatus', id: ANALYST_ID, status: 'idle' });
+    dispatch({ type: 'agentStatus', id: TESTER_ID, status: 'idle' });
+    dispatch({ type: 'agentStatus', id: TESTER3_ID, status: 'idle' });
+    dispatch({ type: 'agentStatus', id: TESTER2_ID, status: 'idle' });
 
-  // Tester2 and Tester3 always run mock scripts
-  scheduleMockTester3Session(dispatch, TESTER3_ID);
-  scheduleMockTester2Session(dispatch, TESTER2_ID);
+    scheduleMockTester3Session(dispatch, TESTER3_ID);
+    scheduleMockTester2Session(dispatch, TESTER2_ID);
+  }
 
   // Tester (ID 103): use real Goose events if server is watching, otherwise run mock
   // Tester (ID 103): always rely on real Goose events via WebSocket — no mock
