@@ -149,6 +149,7 @@ function App() {
     layoutWasReset,
     loadedAssets,
     workspaceFolders,
+    deviceInfo,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
   // Show migration notice once layout reset is detected
@@ -196,7 +197,13 @@ function App() {
   }, []);
 
   const BOSS_ID = 100;
+  const bossCommandLockRef = useRef(false);
   const handleBossCommand = useCallback((command: string) => {
+    // Debounce: prevent rapid-fire task assignment
+    if (bossCommandLockRef.current) return;
+    bossCommandLockRef.current = true;
+    setTimeout(() => { bossCommandLockRef.current = false; }, 2000);
+
     // Boss activates: walk to desk, type the command, then go idle
     window.dispatchEvent(
       new MessageEvent('message', {
@@ -498,6 +505,7 @@ function App() {
         agents={agents}
         agentTools={agentTools}
         subagentCharacters={subagentCharacters}
+        deviceInfo={deviceInfo}
       />
     )}
     </div>

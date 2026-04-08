@@ -1,9 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 
-import type { SubagentCharacter } from '../hooks/useExtensionMessages.js';
+import type { DeviceInfo, SubagentCharacter } from '../hooks/useExtensionMessages.js';
 import { DEFAULT_PROFILES, getRoomDisplayName } from '../office/agentProfiles.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import type { ToolActivity } from '../office/types.js';
+
+/** Agent IDs at or above this are dynamic device Testers */
+const DEVICE_AGENT_ID_START = 200;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -24,6 +27,7 @@ interface AgentStatusPanelProps {
   agents: number[];
   agentTools: Record<number, ToolActivity[]>;
   subagentCharacters: SubagentCharacter[];
+  deviceInfo: Record<number, DeviceInfo>;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -129,12 +133,14 @@ function AgentCard({
   agentTools,
   subagentCharacters,
   history,
+  deviceInfo,
 }: {
   id: number;
   officeState: OfficeState;
   agentTools: Record<number, ToolActivity[]>;
   subagentCharacters: SubagentCharacter[];
   history: HistoryEntry[];
+  deviceInfo: Record<number, DeviceInfo>;
 }) {
   const ch = officeState.characters.get(id);
   const [expanded, setExpanded] = useState(false);
@@ -151,6 +157,9 @@ function AgentCard({
   const name = ch.folderName ?? profile?.name ?? `Agent ${id}`;
   const modelLabel = profile?.model;
   const roomLabel = profile ? getRoomDisplayName(profile) : null;
+
+  const isDeviceTester = id >= DEVICE_AGENT_ID_START && !isSub;
+  const device = deviceInfo[id];
 
   // Reverse: newest first
   const reversed = [...history].reverse();
@@ -213,6 +222,37 @@ function AgentCard({
       {roomLabel && !isSub && (
         <div style={{ paddingLeft: 16, fontSize: '13px', color: 'var(--pixel-text-dim)', opacity: 0.7 }}>
           {roomLabel}
+        </div>
+      )}
+
+      {/* Device info + stop button for dynamic Testers */}
+      {isDeviceTester && device && (
+        <div style={{ paddingLeft: 16, display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+          <span style={{ fontSize: '12px', color: 'var(--pixel-text-dim)', fontFamily: 'monospace' }}>
+            📱 {device.serial}
+          </span>
+          {ch.isActive && (
+            <button
+              onClick={() => {
+                fetch('/goose/kill', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ serial: device.serial }),
+                }).catch(() => {});
+              }}
+              style={{
+                background: '#c53030',
+                color: '#fff',
+                border: '2px solid #9b2c2c',
+                padding: '1px 8px',
+                fontSize: '12px',
+                cursor: 'pointer',
+                lineHeight: 1.4,
+              }}
+            >
+              ■ 停止
+            </button>
+          )}
         </div>
       )}
 
@@ -281,6 +321,7 @@ export function AgentStatusPanel({
   agents,
   agentTools,
   subagentCharacters,
+  deviceInfo,
 }: AgentStatusPanelProps) {
   const allIds = [...agents, ...subagentCharacters.map((s) => s.id)];
   const historyMap = useActivityHistory(agents, agentTools, subagentCharacters, officeState);
@@ -319,6 +360,7 @@ export function AgentStatusPanel({
           agentTools={agentTools}
           subagentCharacters={subagentCharacters}
           history={historyMap.get(id) ?? []}
+          deviceInfo={deviceInfo}
         />
       ))}
     </div>

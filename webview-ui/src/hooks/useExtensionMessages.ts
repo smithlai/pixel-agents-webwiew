@@ -47,6 +47,12 @@ export interface WorkspaceFolder {
   path: string;
 }
 
+export interface DeviceInfo {
+  serial: string;
+  model: string;
+  state: string;
+}
+
 export interface ExtensionMessageState {
   agents: number[];
   selectedAgent: number | null;
@@ -58,6 +64,7 @@ export interface ExtensionMessageState {
   layoutWasReset: boolean;
   loadedAssets?: { catalog: FurnitureAsset[]; sprites: Record<string, string[][]> };
   workspaceFolders: WorkspaceFolder[];
+  deviceInfo: Record<number, DeviceInfo>;
 }
 
 function saveAgentSeats(os: OfficeState): void {
@@ -88,6 +95,7 @@ export function useExtensionMessages(
     { catalog: FurnitureAsset[]; sprites: Record<string, string[][]> } | undefined
   >();
   const [workspaceFolders, setWorkspaceFolders] = useState<WorkspaceFolder[]>([]);
+  const [deviceInfo, setDeviceInfo] = useState<Record<number, DeviceInfo>>({});
 
   // Track whether initial layout has been loaded (ref to avoid re-render)
   const layoutReadyRef = useRef(false);
@@ -404,6 +412,15 @@ export function useExtensionMessages(
         }>;
         const deviceIds = new Set(devices.map(d => d.agentId));
 
+        // Update deviceInfo map
+        setDeviceInfo(() => {
+          const next: Record<number, DeviceInfo> = {};
+          for (const d of devices) {
+            next[d.agentId] = { serial: d.serial, model: d.model, state: d.state };
+          }
+          return next;
+        });
+
         // Add new device agents
         for (const device of devices) {
           if (!os.characters.has(device.agentId)) {
@@ -495,5 +512,6 @@ export function useExtensionMessages(
     layoutWasReset,
     loadedAssets,
     workspaceFolders,
+    deviceInfo,
   };
 }
