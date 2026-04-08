@@ -134,6 +134,22 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             );
           }
 
+          // Send current device list so already-connected devices appear immediately
+          const agents = deviceManager.getAgents();
+          if (agents.length > 0) {
+            wsClient.send(
+              JSON.stringify({
+                type: 'devices-update',
+                devices: agents.map(a => ({
+                  serial: a.serial,
+                  model: deviceManager.getModel(a.serial),
+                  agentId: a.agentId,
+                  state: a.state,
+                })),
+              }),
+            );
+          }
+
           wsClient.on('close', () => {
             clients.delete(wsClient);
             console.log(
