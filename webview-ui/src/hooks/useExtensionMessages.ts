@@ -433,6 +433,8 @@ export function useExtensionMessages(
               undefined,
               profile.name,
             );
+            // Device Testers start idle — only task-assigned sets them active
+            os.setAgentActive(device.agentId, false);
             setAgents((prev) => (prev.includes(device.agentId) ? prev : [...prev, device.agentId]));
           }
         }

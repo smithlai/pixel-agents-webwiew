@@ -22,9 +22,10 @@ export class AdbPoller {
     private readonly intervalMs: number = ADB_POLL_INTERVAL_MS,
   ) {}
 
-  start(): void {
-    // Poll immediately, then on interval
-    this.poll();
+  /** Start polling. Resolves after the first poll completes so callers
+   *  can await device availability before accepting connections. */
+  async start(): Promise<void> {
+    await this.pollAsync();
     this.timer = setInterval(() => this.poll(), this.intervalMs);
   }
 
@@ -33,6 +34,30 @@ export class AdbPoller {
       clearInterval(this.timer);
       this.timer = null;
     }
+  }
+
+  /** Promise-based first poll — ensures device list is populated before
+   *  the WebSocket server starts accepting clients. */
+  private pollAsync(): Promise<void> {
+    if (this.adbMissing) return Promise.resolve();
+
+    return new Promise<void>((resolve) => {
+      child_process.exec('adb devices -l', { timeout: 5000 }, (err, stdout) => {
+        if (err) {
+          if (!this.adbMissing) {
+            console.warn('[AdbPoller] adb not found or failed — polling disabled');
+            this.adbMissing = true;
+          }
+          resolve();
+          return;
+        }
+        if (stdout !== this.lastSnapshot) {
+          this.lastSnapshot = stdout;
+          this.onChange(AdbPoller.parse(stdout));
+        }
+        resolve();
+      });
+    });
   }
 
   private poll(): void {

@@ -95,7 +95,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
   return {
     name: 'goose-events',
 
-    configureServer(server: ViteDevServer) {
+    async configureServer(server: ViteDevServer) {
       // Dynamic import of ws — resolved at runtime from webview-ui/node_modules
       // @ts-expect-error dynamic import resolved at runtime by Vite/Node
       import('ws').then(({ WebSocketServer }: { WebSocketServer: new (opts: { noServer: boolean }) => import('ws').WebSocketServer }) => {
@@ -201,7 +201,8 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
       });
 
       watcher.start();
-      adbPoller.start();
+      // Await first poll so device list is ready before any client connects
+      await adbPoller.start();
       console.log('[GoosePlugin] ADB polling started');
 
       // ── REST endpoints ──────────────────────────────────────────────────
