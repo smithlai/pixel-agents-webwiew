@@ -129,3 +129,56 @@ export function matchProfile(hint: string): AgentProfile | null {
 export function getRoomDisplayName(profile: AgentProfile): string {
   return ROOM_NAMES[profile.room as RoomId] ?? profile.room;
 }
+
+// ── Dynamic Tester profiles (ADB devices) ────────────────────────────────────
+
+/** Seat pool for dynamically spawned device Testers (must match default-layout-2.json) */
+const DEVICE_TESTER_SEATS = [
+  { workSeat: 'lab1-chair1', restSeat: 'lobby-sofa3', room: RoomId.TEST_LAB_1 },
+  { workSeat: 'lab2-chair1', restSeat: 'lobby-sofa4', room: RoomId.TEST_LAB_2 },
+  { workSeat: 'analysis-chair2', restSeat: 'lobby-bench3', room: RoomId.ANALYSIS_ROOM },
+  { workSeat: 'analysis-chair1', restSeat: 'lobby-sofa2', room: RoomId.ANALYSIS_ROOM },
+];
+
+/** Track allocated seat indices so multiple devices don't overlap */
+const allocatedSeatIndices = new Set<number>();
+
+/**
+ * Generate a Tester profile for an ADB device.
+ * Auto-assigns a free seat from the pool, round-robin cycles if exhausted.
+ */
+export function generateTesterProfile(
+  serial: string,
+  model: string,
+  agentId: number,
+): AgentProfile {
+  // Find first unallocated seat, or wrap around
+  let seatIdx = 0;
+  for (let i = 0; i < DEVICE_TESTER_SEATS.length; i++) {
+    if (!allocatedSeatIndices.has(i)) {
+      seatIdx = i;
+      break;
+    }
+    seatIdx = i;
+  }
+  allocatedSeatIndices.add(seatIdx);
+  const seat = DEVICE_TESTER_SEATS[seatIdx % DEVICE_TESTER_SEATS.length];
+
+  return {
+    name: model || serial,
+    model: `device:${serial}`,
+    room: seat.room,
+    workSeat: seat.workSeat,
+    restSeat: seat.restSeat,
+    reportTo: 'boss',
+    palette: (agentId - 200) % 6,
+  };
+}
+
+/**
+ * Release a seat when a device disconnects.
+ */
+export function releaseTesterSeat(agentId: number): void {
+  const idx = (agentId - 200) % DEVICE_TESTER_SEATS.length;
+  allocatedSeatIndices.delete(idx);
+}

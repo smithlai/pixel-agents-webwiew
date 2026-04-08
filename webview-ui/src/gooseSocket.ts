@@ -24,13 +24,25 @@ function dispatch(data: unknown): void {
   window.dispatchEvent(new MessageEvent('message', { data }));
 }
 
+/** Message types dispatched directly (not wrapped in goose-events) */
+const DIRECT_DISPATCH_TYPES = new Set([
+  'devices-update',
+  'task-assigned',
+  'task-stopped',
+]);
+
 function handleMessage(event: MessageEvent): void {
   try {
     const payload = JSON.parse(event.data as string) as {
       type: string;
       messages?: unknown[];
-      events?: string[];
     };
+
+    // Direct dispatch for device-related messages
+    if (DIRECT_DISPATCH_TYPES.has(payload.type)) {
+      dispatch(payload);
+      return;
+    }
 
     if (payload.type === 'goose-events' && payload.messages) {
       // Real-time events or buffered replay — dispatch each as a webview message

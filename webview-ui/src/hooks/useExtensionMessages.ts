@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { playDoneSound, setSoundEnabled } from '../notificationSound.js';
+import { generateTesterProfile, releaseTesterSeat } from '../office/agentProfiles.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import { setFloorSprites } from '../office/floorTiles.js';
 import { buildDynamicCatalog } from '../office/layout/furnitureCatalog.js';
@@ -393,6 +394,78 @@ export function useExtensionMessages(
       } else if (msg.type === 'settingsLoaded') {
         const soundOn = msg.soundEnabled as boolean;
         setSoundEnabled(soundOn);
+      } else if (msg.type === 'devices-update') {
+        // ADB device list changed — add/remove dynamic Tester agents
+        const devices = msg.devices as Array<{
+          serial: string;
+          model: string;
+          agentId: number;
+          state: string;
+        }>;
+        const deviceIds = new Set(devices.map(d => d.agentId));
+
+        // Add new device agents
+        for (const device of devices) {
+          if (!os.characters.has(device.agentId)) {
+            const profile = generateTesterProfile(device.serial, device.model, device.agentId);
+            os.addAgent(
+              device.agentId,
+              profile.palette,
+              undefined,
+              profile.workSeat,
+              undefined,
+              profile.name,
+            );
+            setAgents((prev) => (prev.includes(device.agentId) ? prev : [...prev, device.agentId]));
+          }
+        }
+
+        // Remove agents for disconnected devices (IDs ≥ 200 only)
+        for (const ch of os.characters.values()) {
+          if (ch.id >= 200 && !ch.isSubagent && !deviceIds.has(ch.id)) {
+            os.removeAllSubagents(ch.id);
+            os.removeAgent(ch.id);
+            releaseTesterSeat(ch.id);
+            setAgents((prev) => prev.filter((a) => a !== ch.id));
+            setAgentTools((prev) => {
+              if (!(ch.id in prev)) return prev;
+              const next = { ...prev };
+              delete next[ch.id];
+              return next;
+            });
+            setAgentStatuses((prev) => {
+              if (!(ch.id in prev)) return prev;
+              const next = { ...prev };
+              delete next[ch.id];
+              return next;
+            });
+          }
+        }
+      } else if (msg.type === 'task-assigned') {
+        // Boss assigned a task to a device Tester
+        const agentId = msg.agentId as number;
+        os.setAgentActive(agentId, true);
+      } else if (msg.type === 'task-stopped') {
+        // Task completed or was stopped
+        const agentId = msg.agentId as number;
+        os.setAgentActive(agentId, false);
+        os.setAgentTool(agentId, null);
+        os.clearPermissionBubble(agentId);
+        // Remove sub-agents of this Tester
+        os.removeAllSubagents(agentId);
+        setSubagentCharacters((prev) => prev.filter((s) => s.parentAgentId !== agentId));
+        setAgentTools((prev) => {
+          if (!(agentId in prev)) return prev;
+          const next = { ...prev };
+          delete next[agentId];
+          return next;
+        });
+        setSubagentTools((prev) => {
+          if (!(agentId in prev)) return prev;
+          const next = { ...prev };
+          delete next[agentId];
+          return next;
+        });
       } else if (msg.type === 'furnitureAssetsLoaded') {
         try {
           const catalog = msg.catalog as FurnitureAsset[];
