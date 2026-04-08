@@ -9,6 +9,8 @@
  */
 
 import * as child_process from 'child_process';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
 import type { Plugin, ViteDevServer } from 'vite';
@@ -37,12 +39,19 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
   const clients = new Set<any>();
   const translator = new EventTranslator(agentId);
 
-  // Buffer recent events so new WebSocket clients can catch up
-  const recentEvents: string[] = [];
+  // Buffer recent translated messages so new WebSocket clients can catch up
+  const recentMessages: Array<Record<string, unknown>> = [];
   const MAX_BUFFER = 200;
 
   function broadcast(messages: Array<Record<string, unknown>>): void {
     if (messages.length === 0) return;
+    // Buffer for late-joining clients
+    for (const m of messages) {
+      recentMessages.push(m);
+    }
+    if (recentMessages.length > MAX_BUFFER) {
+      recentMessages.splice(0, recentMessages.length - MAX_BUFFER);
+    }
     const payload = JSON.stringify({ type: 'goose-events', messages });
     for (const client of clients) {
       if (client.readyState === 1) {
@@ -86,10 +95,11 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             `[GoosePlugin] WebSocket client connected (${clients.size} total)`,
           );
 
-          // Send buffered events to new client
-          if (recentEvents.length > 0) {
+          // Replay buffered (translated) messages to new client
+          if (recentMessages.length > 0) {
+            console.log(`[GoosePlugin] Replaying ${recentMessages.length} buffered messages to new client`);
             wsClient.send(
-              JSON.stringify({ type: 'goose-buffer', events: recentEvents }),
+              JSON.stringify({ type: 'goose-events', messages: recentMessages }),
             );
           }
 
@@ -110,14 +120,9 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
       watcher = new GooseWatcher({
         watchDir,
         onEvent: (event, _file) => {
-          // Store raw event in buffer
-          recentEvents.push(JSON.stringify(event));
-          if (recentEvents.length > MAX_BUFFER) {
-            recentEvents.splice(0, recentEvents.length - MAX_BUFFER);
-          }
-
-          // Translate to webview messages and broadcast
+          // Translate to webview messages and broadcast (broadcast also buffers)
           const messages = translator.translate(event);
+          console.log(`[GoosePlugin] Event: ${event.type} → ${messages.length} messages (${clients.size} clients)`);
           broadcast(messages);
         },
         onFileFound: (file) => {
@@ -138,7 +143,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
           JSON.stringify({
             watching: watcher?.getWatchedFiles() ?? [],
             clients: clients.size,
-            bufferedEvents: recentEvents.length,
+            bufferedEvents: recentMessages.length,
           }),
         );
       });
@@ -176,24 +181,45 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             }
 
             console.log(`[GoosePlugin] Spawning MobileGoose: ${command}`);
+            // Write command to a temp .cmd file to avoid quoting hell when
+            // passing through Node → PowerShell → CMD → BAT → Python layers.
+            // The .cmd self-deletes after execution.
+            const tmpCmd = path.join(
+              os.tmpdir(),
+              `goose-run-${Date.now()}.cmd`,
+            );
+            const script = [
+              '@echo off',
+              `cd /d "${resolvedGooseDir}"`,
+              `call "${batPath}" run -t "${command.replace(/"/g, '""')}"`,
+              'del "%~f0"',
+            ].join('\r\n');
+            fs.writeFileSync(tmpCmd, script, 'utf8');
+
             // Use PowerShell Start-Process -WindowStyle Hidden so the entire
-            // process tree (bat + python + goose) stays invisible on Windows.
-            // direct spawn('cmd', ..., { detached: true }) always creates a new
-            // console window regardless of windowsHide.
-            const safeDir = resolvedGooseDir.replace(/'/g, "''");
-            const safeBat = batPath.replace(/'/g, "''");
-            const safeCmd = command.replace(/'/g, "''");
+            // process tree (cmd + bat + python + goose) stays invisible.
+            const safeTmp = tmpCmd.replace(/'/g, "''");
             const psCommand =
               `Start-Process -FilePath cmd` +
-              ` -ArgumentList @('/c','${safeBat}','run','-t','${safeCmd}')` +
-              ` -WorkingDirectory '${safeDir}'` +
+              ` -ArgumentList '/c','${safeTmp}'` +
               ` -WindowStyle Hidden`;
-            child_process.spawn('powershell', [
+            const ps = child_process.spawn('powershell', [
               '-NoProfile', '-NonInteractive', '-Command', psCommand,
             ], {
-              stdio: 'ignore',
+              stdio: ['ignore', 'pipe', 'pipe'],
               windowsHide: true,
-            }).unref();
+            });
+            let psStderr = '';
+            ps.stderr?.on('data', (chunk: Buffer) => { psStderr += chunk.toString(); });
+            ps.on('close', (code) => {
+              if (code !== 0 || psStderr) {
+                console.error(
+                  `[GoosePlugin] PowerShell exited with code ${code}` +
+                  (psStderr ? `\n${psStderr}` : ''),
+                );
+              }
+            });
+            ps.unref();
 
             res.statusCode = 202;
             res.setHeader('Content-Type', 'application/json');

@@ -33,15 +33,10 @@ function handleMessage(event: MessageEvent): void {
     };
 
     if (payload.type === 'goose-events' && payload.messages) {
-      // Real-time events — dispatch each as a webview message
+      // Real-time events or buffered replay — dispatch each as a webview message
       for (const msg of payload.messages) {
         dispatch(msg);
       }
-    } else if (payload.type === 'goose-buffer' && payload.events) {
-      // Buffered events on connect — replay (these are raw GooseEvent JSON strings,
-      // but the server already translates them, so this is pre-translated messages)
-      // Note: buffer replay is handled server-side; we just log for now
-      console.log(`[GooseSocket] Received ${payload.events.length} buffered events`);
     }
   } catch {
     // Ignore malformed messages

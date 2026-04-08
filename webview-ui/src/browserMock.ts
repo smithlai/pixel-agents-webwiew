@@ -537,31 +537,10 @@ export function dispatchMockMessages(): void {
   scheduleMockTester2Session(dispatch, TESTER2_ID);
 
   // Tester (ID 103): use real Goose events if server is watching, otherwise run mock
-  // Check /goose/status — if server is watching real files, skip mock to avoid conflict
-  fetch('/goose/status')
-    .then((r) => r.json() as Promise<{ watching: string[] }>)
-    .then(({ watching }) => {
-      if (watching.length > 0) {
-        console.log('[BrowserMock] Goose server is active — skipping Tester mock, using real events');
-        import('./gooseSocket.js').then(({ initGooseSocket }) => {
-          initGooseSocket();
-          console.log('[BrowserMock] Goose WebSocket client started for Tester agent');
-        }).catch(() => {
-          console.log('[BrowserMock] Goose WebSocket not available');
-        });
-      } else {
-        console.log('[BrowserMock] Goose server idle — running Tester mock session');
-        scheduleMockTestSession(dispatch);
-        import('./gooseSocket.js').then(({ initGooseSocket }) => {
-          initGooseSocket();
-        }).catch(() => {});
-      }
-    })
-    .catch(() => {
-      // /goose/status not reachable (no Goose plugin) — run full mock
-      console.log('[BrowserMock] Goose server not available — running Tester mock session');
-      scheduleMockTestSession(dispatch);
-    });
+  // Tester (ID 103): always rely on real Goose events via WebSocket — no mock
+  import('./gooseSocket.js').then(({ initGooseSocket }) => {
+    initGooseSocket();
+  }).catch(() => {});
 
   console.log('[BrowserMock] Messages dispatched (with Goose mock agents)');
 }

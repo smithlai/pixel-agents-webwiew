@@ -160,6 +160,8 @@ export class GooseWatcher {
 
     if (stat.size === state.offset) return;
 
+    console.log(`[GooseWatcher] Reading ${stat.size - state.offset}B from ${path.basename(filePath)}`);
+
     // Read new bytes
     const fd = fs.openSync(filePath, 'r');
     try {
@@ -180,9 +182,11 @@ export class GooseWatcher {
           const event = JSON.parse(trimmed) as GooseEvent;
           if (event.type && event.ts) {
             this.onEvent(event, filePath);
+          } else {
+            console.warn(`[GooseWatcher] Skipping line — missing type/ts: ${trimmed.slice(0, 120)}`);
           }
         } catch {
-          // Malformed line — skip
+          console.warn(`[GooseWatcher] Malformed line: ${trimmed.slice(0, 120)}`);
         }
       }
     } finally {
