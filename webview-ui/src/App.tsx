@@ -198,7 +198,7 @@ function App() {
 
   const BOSS_ID = 100;
   const bossCommandLockRef = useRef(false);
-  const handleBossCommand = useCallback((command: string) => {
+  const handleBossCommand = useCallback((command: string, serial?: string) => {
     // Debounce: prevent rapid-fire task assignment
     if (bossCommandLockRef.current) return;
     bossCommandLockRef.current = true;
@@ -219,7 +219,7 @@ function App() {
     fetch('/goose/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ command }),
+      body: JSON.stringify({ command, serial }),
     }).then(async (r) => {
       if (r.ok) {
         const result = await r.json() as { serial?: string; agentId?: number; testrun?: string };
@@ -351,7 +351,7 @@ function App() {
       />
 
       {!editor.isEditMode && !isDebugMode && isBrowserRuntime && (
-        <CommandInput onSubmit={handleBossCommand} />
+        <CommandInput onSubmit={handleBossCommand} deviceInfo={deviceInfo} />
       )}
 
       {editor.isEditMode && editor.isDirty && (

@@ -55,6 +55,27 @@ function handleMessage(event: MessageEvent): void {
   }
 }
 
+/**
+ * Pull device list via REST — fallback for when WebSocket push
+ * arrives before AdbPoller has finished its first async poll.
+ * Retries once after a short delay to cover the poll latency.
+ */
+function fetchDevices(): void {
+  const doFetch = () =>
+    fetch('/goose/devices')
+      .then(r => r.json())
+      .then((data: { devices?: unknown[] }) => {
+        if (data.devices && (data.devices as unknown[]).length > 0) {
+          dispatch({ type: 'devices-update', devices: data.devices });
+        }
+      })
+      .catch(() => {});
+
+  // Immediate try + retry after 3s (covers ADB poll lag)
+  doFetch();
+  setTimeout(doFetch, 3000);
+}
+
 function connect(): void {
   if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
     return;
@@ -68,6 +89,9 @@ function connect(): void {
   ws.onopen = () => {
     console.log('[GooseSocket] Connected');
     reconnectAttempts = 0;
+    // Pull current devices via REST as fallback — WebSocket push
+    // may arrive before AdbPoller's first async poll completes.
+    fetchDevices();
   };
 
   ws.onmessage = handleMessage;

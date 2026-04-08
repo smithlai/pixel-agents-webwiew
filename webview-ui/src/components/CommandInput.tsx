@@ -1,8 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 
+import type { DeviceInfo } from '../hooks/useExtensionMessages.js';
+
 interface CommandInputProps {
-  /** 送出指令時觸發 */
-  onSubmit: (command: string) => void;
+  /** 送出指令時觸發（command + optional serial） */
+  onSubmit: (command: string, serial?: string) => void;
+  /** 目前偵測到的裝置清單（agentId → DeviceInfo） */
+  deviceInfo: Record<number, DeviceInfo>;
 }
 
 const containerStyle: React.CSSProperties = {
@@ -46,16 +50,31 @@ const btnStyle: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function CommandInput({ onSubmit }: CommandInputProps) {
+const selectStyle: React.CSSProperties = {
+  padding: '5px 6px',
+  fontSize: '14px',
+  color: 'var(--pixel-text)',
+  background: 'var(--pixel-btn-bg)',
+  border: '2px solid var(--pixel-border)',
+  borderRadius: 0,
+  outline: 'none',
+  fontFamily: "'Segoe UI', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif",
+  maxWidth: 160,
+};
+
+export function CommandInput({ onSubmit, deviceInfo }: CommandInputProps) {
   const [value, setValue] = useState('');
+  const [selectedSerial, setSelectedSerial] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const devices = Object.values(deviceInfo);
 
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim();
     if (!trimmed) return;
-    onSubmit(trimmed);
+    onSubmit(trimmed, selectedSerial || undefined);
     setValue('');
-  }, [value, onSubmit]);
+  }, [value, selectedSerial, onSubmit]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -74,6 +93,21 @@ export function CommandInput({ onSubmit }: CommandInputProps) {
       <span style={{ fontSize: '22px', color: 'var(--pixel-text-dim)', padding: '0 4px', whiteSpace: 'nowrap' }}>
         Boss &gt;
       </span>
+      {devices.length > 1 && (
+        <select
+          value={selectedSerial}
+          onChange={(e) => setSelectedSerial(e.target.value)}
+          style={selectStyle}
+          title="選擇目標裝置"
+        >
+          <option value="">自動分配</option>
+          {devices.map((d) => (
+            <option key={d.serial} value={d.serial} disabled={d.state === 'active'}>
+              {d.model}{d.state === 'active' ? ' (忙碌)' : ''}
+            </option>
+          ))}
+        </select>
+      )}
       <input
         ref={inputRef}
         type="text"
