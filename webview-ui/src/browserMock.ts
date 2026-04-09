@@ -234,8 +234,8 @@ export async function initBrowserMock(): Promise<void> {
         decodeFurnitureFromPng(base, catalog),
       ]);
 
-  // Prefer saved layout from localStorage, fall back to default asset
-  const savedLayout = loadSavedLayout();
+  // Prefer saved layout from server state, fall back to default asset
+  const savedLayout = await loadSavedLayout();
   const layout = savedLayout
     ?? (assetIndex.defaultLayout
       ? await fetch(`${base}assets/${assetIndex.defaultLayout}`).then((r) => r.json())

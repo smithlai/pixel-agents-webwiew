@@ -6,12 +6,14 @@
  * 2. Upgrades HTTP connections on /goose-ws to WebSocket
  * 3. Forwards translated GooseEvents as webview messages to all connected clients
  * 4. Serves /goose/status as a health check endpoint
+ * 5. Persists browser-mode UI state (layout, settings) via GET/POST /pixel-agents-web/state
  */
 
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 import type { Plugin, ViteDevServer } from 'vite';
 
@@ -19,6 +21,56 @@ import { AdbPoller } from './adbPoller.ts';
 import { DeviceManager } from './deviceManager.ts';
 import { EventTranslator } from './eventTranslator.ts';
 import { GooseWatcher } from './gooseWatcher.ts';
+
+// Project root = one level up from this file (server/)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+
+// State file: <project-root>/.runtime/pixel-agents-browser-workspace-state.json
+const STATE_FILE = path.join(PROJECT_ROOT, '.runtime', 'pixel-agents-browser-workspace-state.json');
+// Legacy path (written by older dev sessions that ran from webview-ui/)
+const LEGACY_STATE_FILE = path.join(PROJECT_ROOT, 'webview-ui', '.runtime', 'pixel-agents-browser-workspace-state.json');
+// When layout is saved, also keep a copy as the default layout fallback
+const DEFAULT_LAYOUT_999 = path.join(PROJECT_ROOT, 'webview-ui', 'public', 'assets', 'default-layout-999.json');
+
+function readUiState(): Record<string, unknown> {
+  // Primary path
+  if (fs.existsSync(STATE_FILE)) {
+    try {
+      return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  // Legacy fallback — promote to primary on first read
+  if (fs.existsSync(LEGACY_STATE_FILE)) {
+    try {
+      const state = JSON.parse(fs.readFileSync(LEGACY_STATE_FILE, 'utf8')) as Record<string, unknown>;
+      console.log('[GoosePlugin] Migrating state from legacy path to project root');
+      writeUiState(state);
+      return state;
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function writeUiState(state: Record<string, unknown>): void {
+  const dir = path.dirname(STATE_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+
+  // Side-effect: keep default-layout-999.json in sync when layout changes
+  if (state.layout) {
+    try {
+      fs.writeFileSync(DEFAULT_LAYOUT_999, JSON.stringify(state.layout, null, 2), 'utf8');
+    } catch {
+      console.warn('[GoosePlugin] Failed to update default-layout-999.json');
+    }
+  }
+}
 
 export interface GoosePluginOptions {
   /** Directory containing goose-events-*.jsonl files */
@@ -217,6 +269,37 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             bufferedEvents: recentMessages.length,
           }),
         );
+      });
+
+      // GET /pixel-agents-web/state — read persisted browser UI state
+      // POST /pixel-agents-web/state — merge-patch persisted browser UI state
+      server.middlewares.use(`${base}/pixel-agents-web/state`, (req, res) => {
+        if (req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify(readUiState()));
+          return;
+        }
+        if (req.method === 'POST') {
+          let body = '';
+          req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+          req.on('end', () => {
+            try {
+              const patch = JSON.parse(body) as Record<string, unknown>;
+              const current = readUiState();
+              const merged = { ...current, ...patch };
+              writeUiState(merged);
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ ok: true }));
+            } catch {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ error: 'Invalid JSON' }));
+            }
+          });
+          return;
+        }
+        res.statusCode = 405;
+        res.end(JSON.stringify({ error: 'Method Not Allowed' }));
       });
 
       // GET /goose/devices — list ADB devices and their Tester state

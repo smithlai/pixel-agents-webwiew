@@ -29,3 +29,7 @@ Thumbs.db
 # Project-specific
 .claude/
 /sprites-export
+
+# Browser-mode runtime state (generated, not versioned)
+.runtime/
+webview-ui/.runtime/
