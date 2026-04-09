@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import type { WorkspaceFolder } from '../hooks/useExtensionMessages.js';
-import { vscode } from '../vscodeApi.js';
+import { vscode } from '../webviewBridge.js';
 
 interface BottomToolbarProps {
   isEditMode: boolean;

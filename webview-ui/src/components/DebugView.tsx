@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { ToolActivity } from '../office/types.js';
-import { vscode } from '../vscodeApi.js';
+import { vscode } from '../webviewBridge.js';
 import { Button } from './ui/Button.js';
 
 interface AgentDiagnostics {

@@ -8,7 +8,7 @@ import { isBrowserRuntime } from './runtime';
 
 async function main() {
   if (isBrowserRuntime) {
-    const { initBrowserMock } = await import('./browserMock.js');
+    const { initBrowserMock } = await import('./browserBootstrap.js');
     await initBrowserMock();
   }
   createRoot(document.getElementById('root')!).render(

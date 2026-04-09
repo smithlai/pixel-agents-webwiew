@@ -1,3 +1,14 @@
+/**
+ * Webview 訊息橋接層 — UI ↔ 後端的統一 postMessage 介面。
+ *
+ * 來源端：React UI 元件透過 vscode.postMessage({ type, ... })
+ * 目標端：
+ *   - VS Code 模式 → Extension backend (PixelAgentsViewProvider)
+ *   - Browser 模式 → Vite dev server REST API (viteGoosePlugin)
+ *
+ * 自動偵測 runtime 環境，選擇對應的訊息傳輸實作。
+ */
+
 import { isBrowserRuntime } from './runtime';
 
 declare function acquireVsCodeApi(): { postMessage(msg: unknown): void };
@@ -40,6 +51,16 @@ function browserPostMessage(msg: unknown): void {
     void patchServerState({ agentSeats: m.agentSeats });
   } else if (m.type === 'setSoundEnabled') {
     void patchServerState({ soundEnabled: m.enabled });
+  } else if (m.type === 'setWatchAllSessions') {
+    void patchServerState({ watchAllSessions: m.enabled });
+  } else if (m.type === 'setHooksEnabled') {
+    void patchServerState({ hooksEnabled: m.enabled });
+  } else if (m.type === 'setAlwaysShowLabels') {
+    void patchServerState({ alwaysShowLabels: m.enabled });
+  } else if (m.type === 'setLastSeenVersion') {
+    void patchServerState({ lastSeenVersion: m.version });
+  } else if (m.type === 'setHooksInfoShown') {
+    void patchServerState({ hooksInfoShown: m.shown });
   } else {
     console.log('[vscode.postMessage]', msg);
   }
