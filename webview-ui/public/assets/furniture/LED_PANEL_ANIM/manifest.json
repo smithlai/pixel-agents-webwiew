@@ -1,0 +1,138 @@
+{
+  "id": "LED_PANEL_ANIM",
+  "name": "LED Panel",
+  "category": "electronics",
+  "type": "group",
+  "groupType": "rotation",
+  "rotationScheme": "3-way-mirror",
+  "canPlaceOnWalls": false,
+  "canPlaceOnSurfaces": true,
+  "backgroundTiles": 1,
+  "members": [
+    {
+      "type": "group",
+      "groupType": "state",
+      "orientation": "front",
+      "members": [
+        {
+          "type": "group",
+          "groupType": "animation",
+          "state": "on",
+          "members": [
+            {
+              "type": "asset",
+              "id": "LED_PANEL_FRONT_ON_1",
+              "file": "LED_PANEL_FRONT_ON_1.png",
+              "width": 16,
+              "height": 32,
+              "footprintW": 1,
+              "footprintH": 2,
+              "frame": 0
+            },
+            {
+              "type": "asset",
+              "id": "LED_PANEL_FRONT_ON_2",
+              "file": "LED_PANEL_FRONT_ON_2.png",
+              "width": 16,
+              "height": 32,
+              "footprintW": 1,
+              "footprintH": 2,
+              "frame": 1
+            },
+            {
+              "type": "asset",
+              "id": "LED_PANEL_FRONT_ON_3",
+              "file": "LED_PANEL_FRONT_ON_3.png",
+              "width": 16,
+              "height": 32,
+              "footprintW": 1,
+              "footprintH": 2,
+              "frame": 2
+            },
+            {
+              "type": "asset",
+              "id": "LED_PANEL_FRONT_ON_4",
+              "file": "LED_PANEL_FRONT_ON_4.png",
+              "width": 16,
+              "height": 32,
+              "footprintW": 1,
+              "footprintH": 2,
+              "frame": 3
+            },
+            {
+              "type": "asset",
+              "id": "LED_PANEL_FRONT_ON_5",
+              "file": "LED_PANEL_FRONT_ON_5.png",
+              "width": 16,
+              "height": 32,
+              "footprintW": 1,
+              "footprintH": 2,
+              "frame": 4
+            },
+            {
+              "type": "asset",
+              "id": "LED_PANEL_FRONT_ON_6",
+              "file": "LED_PANEL_FRONT_ON_6.png",
+              "width": 16,
+              "height": 32,
+              "footprintW": 1,
+              "footprintH": 2,
+              "frame": 5
+            },
+            {
+              "type": "asset",
+              "id": "LED_PANEL_FRONT_ON_7",
+              "file": "LED_PANEL_FRONT_ON_7.png",
+              "width": 16,
+              "height": 32,
+              "footprintW": 1,
+              "footprintH": 2,
+              "frame": 6
+            },
+            {
+              "type": "asset",
+              "id": "LED_PANEL_FRONT_ON_8",
+              "file": "LED_PANEL_FRONT_ON_8.png",
+              "width": 16,
+              "height": 32,
+              "footprintW": 1,
+              "footprintH": 2,
+              "frame": 7
+            }
+          ]
+        },
+        {
+          "type": "asset",
+          "id": "LED_PANEL_FRONT_OFF",
+          "file": "LED_PANEL_FRONT_OFF.png",
+          "width": 16,
+          "height": 32,
+          "footprintW": 1,
+          "footprintH": 2,
+          "state": "off"
+        }
+      ]
+    },
+    {
+      "type": "asset",
+      "id": "LED_PANEL_BACK",
+      "file": "LED_PANEL_BACK.png",
+      "width": 16,
+      "height": 32,
+      "footprintW": 1,
+      "footprintH": 2,
+      "orientation": "back"
+    },
+    {
+      "type": "asset",
+      "id": "LED_PANEL_SIDE",
+      "file": "LED_PANEL_SIDE.png",
+      "width": 16,
+      "height": 32,
+      "footprintW": 1,
+      "footprintH": 2,
+      "orientation": "side",
+      "mirrorSide": true
+    }
+  ]
+}
