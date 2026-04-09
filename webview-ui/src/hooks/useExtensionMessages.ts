@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { playDoneSound, setSoundEnabled } from '../notificationSound.js';
+import { playDoneSound, playPermissionSound, setSoundEnabled } from '../notificationSound.js';
 import { generateTesterProfile, releaseTesterSeat } from '../office/agentProfiles.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import { setFloorSprites } from '../office/floorTiles.js';
@@ -65,6 +65,15 @@ export interface ExtensionMessageState {
   loadedAssets?: { catalog: FurnitureAsset[]; sprites: Record<string, string[][]> };
   workspaceFolders: WorkspaceFolder[];
   deviceInfo: Record<number, DeviceInfo>;
+  externalAssetDirectories: string[];
+  lastSeenVersion: string;
+  extensionVersion: string;
+  watchAllSessions: boolean;
+  setWatchAllSessions: (v: boolean) => void;
+  alwaysShowLabels: boolean;
+  hooksEnabled: boolean;
+  setHooksEnabled: (v: boolean) => void;
+  hooksInfoShown: boolean;
 }
 
 function saveAgentSeats(os: OfficeState): void {
@@ -96,6 +105,13 @@ export function useExtensionMessages(
   >();
   const [workspaceFolders, setWorkspaceFolders] = useState<WorkspaceFolder[]>([]);
   const [deviceInfo, setDeviceInfo] = useState<Record<number, DeviceInfo>>({});
+  const [externalAssetDirectories, setExternalAssetDirectories] = useState<string[]>([]);
+  const [lastSeenVersion, setLastSeenVersion] = useState('');
+  const [extensionVersion, setExtensionVersion] = useState('');
+  const [watchAllSessions, setWatchAllSessions] = useState(false);
+  const [hooksEnabled, setHooksEnabled] = useState(true);
+  const [hooksInfoShown, setHooksInfoShown] = useState(true);
+  const [alwaysShowLabels, setAlwaysShowLabels] = useState(false);
 
   // Track whether initial layout has been loaded (ref to avoid re-render)
   const layoutReadyRef = useRef(false);
@@ -295,6 +311,7 @@ export function useExtensionMessages(
           };
         });
         os.showPermissionBubble(id);
+        playPermissionSound();
       } else if (msg.type === 'subagentToolPermission') {
         const id = msg.id as number;
         const parentToolId = msg.parentToolId as string;
@@ -402,6 +419,27 @@ export function useExtensionMessages(
       } else if (msg.type === 'settingsLoaded') {
         const soundOn = msg.soundEnabled as boolean;
         setSoundEnabled(soundOn);
+        if (typeof msg.watchAllSessions === 'boolean') {
+          setWatchAllSessions(msg.watchAllSessions as boolean);
+        }
+        if (typeof msg.alwaysShowLabels === 'boolean') {
+          setAlwaysShowLabels(msg.alwaysShowLabels as boolean);
+        }
+        if (typeof msg.hooksEnabled === 'boolean') {
+          setHooksEnabled(msg.hooksEnabled as boolean);
+        }
+        if (typeof msg.hooksInfoShown === 'boolean') {
+          setHooksInfoShown(msg.hooksInfoShown as boolean);
+        }
+        if (Array.isArray(msg.externalAssetDirectories)) {
+          setExternalAssetDirectories(msg.externalAssetDirectories as string[]);
+        }
+        if (typeof msg.lastSeenVersion === 'string') {
+          setLastSeenVersion(msg.lastSeenVersion as string);
+        }
+        if (typeof msg.extensionVersion === 'string') {
+          setExtensionVersion(msg.extensionVersion as string);
+        }
       } else if (msg.type === 'devices-update') {
         // ADB device list changed — add/remove dynamic Tester agents
         const devices = msg.devices as Array<{
@@ -485,6 +523,10 @@ export function useExtensionMessages(
           delete next[agentId];
           return next;
         });
+      } else if (msg.type === 'externalAssetDirectoriesUpdated') {
+        if (Array.isArray(msg.dirs)) {
+          setExternalAssetDirectories(msg.dirs as string[]);
+        }
       } else if (msg.type === 'furnitureAssetsLoaded') {
         try {
           const catalog = msg.catalog as FurnitureAsset[];
@@ -515,5 +557,14 @@ export function useExtensionMessages(
     loadedAssets,
     workspaceFolders,
     deviceInfo,
+    externalAssetDirectories,
+    lastSeenVersion,
+    extensionVersion,
+    watchAllSessions,
+    setWatchAllSessions,
+    alwaysShowLabels,
+    hooksEnabled,
+    setHooksEnabled,
+    hooksInfoShown,
   };
 }

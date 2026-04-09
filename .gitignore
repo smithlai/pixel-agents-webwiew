@@ -18,6 +18,10 @@ Thumbs.db
 .vscode-test/
 /.idea
 
+# E2E test artifacts
+test-results/
+playwright-report/
+
 # Build artifacts
 *.vsix
 *.map
@@ -29,6 +33,9 @@ Thumbs.db
 # Project-specific
 .claude/
 /sprites-export
+
+# Local notes (not for commit)
+/notes/
 
 # Browser-mode runtime state (generated, not versioned)
 .runtime/

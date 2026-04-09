@@ -2,16 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { WorkspaceFolder } from '../hooks/useExtensionMessages.js';
 import { vscode } from '../vscodeApi.js';
-import { SettingsModal } from './SettingsModal.js';
 
 interface BottomToolbarProps {
   isEditMode: boolean;
   onOpenClaude: () => void;
   onToggleEditMode: () => void;
-  isDebugMode: boolean;
-  onToggleDebugMode: () => void;
-  alwaysShowOverlay: boolean;
-  onToggleAlwaysShowOverlay: () => void;
+  isSettingsOpen: boolean;
+  onToggleSettings: () => void;
   workspaceFolders: WorkspaceFolder[];
 }
 
@@ -23,18 +20,18 @@ const panelStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 4,
-  background: 'var(--pixel-bg)',
-  border: '2px solid var(--pixel-border)',
+  background: 'var(--color-bg)',
+  border: '2px solid var(--color-border)',
   borderRadius: 0,
   padding: '4px 6px',
-  boxShadow: 'var(--pixel-shadow)',
+  boxShadow: 'var(--shadow-pixel)',
 };
 
 const btnBase: React.CSSProperties = {
   padding: '5px 10px',
   fontSize: '24px',
-  color: 'var(--pixel-text)',
-  background: 'var(--pixel-btn-bg)',
+  color: 'var(--color-text)',
+  background: 'var(--color-btn-bg)',
   border: '2px solid transparent',
   borderRadius: 0,
   cursor: 'pointer',
@@ -42,22 +39,19 @@ const btnBase: React.CSSProperties = {
 
 const btnActive: React.CSSProperties = {
   ...btnBase,
-  background: 'var(--pixel-active-bg)',
-  border: '2px solid var(--pixel-accent)',
+  background: 'var(--color-active-bg)',
+  border: '2px solid var(--color-accent)',
 };
 
 export function BottomToolbar({
   isEditMode,
   onOpenClaude,
   onToggleEditMode,
-  isDebugMode,
-  onToggleDebugMode,
-  alwaysShowOverlay,
-  onToggleAlwaysShowOverlay,
+  isSettingsOpen,
+  onToggleSettings,
   workspaceFolders,
 }: BottomToolbarProps) {
   const [hovered, setHovered] = useState<string | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
   const [hoveredFolder, setHoveredFolder] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState(true);
@@ -94,12 +88,12 @@ export function BottomToolbar({
     return (
       <div style={panelStyle}>
         <button
-          onClick={() => setCollapsed(false)}
+          onClick={() => { setCollapsed(false); setIsFolderPickerOpen(false); }}
           onMouseEnter={() => setHovered('expand')}
           onMouseLeave={() => setHovered(null)}
           style={{
             ...btnBase,
-            background: hovered === 'expand' ? 'var(--pixel-btn-hover-bg)' : btnBase.background,
+            background: hovered === 'expand' ? 'var(--color-btn-hover)' : btnBase.background,
           }}
           title="展開工具列"
         >
@@ -112,12 +106,12 @@ export function BottomToolbar({
   return (
     <div style={panelStyle}>
       <button
-        onClick={() => { setCollapsed(true); setIsSettingsOpen(false); setIsFolderPickerOpen(false); }}
+        onClick={() => { setCollapsed(true); setIsFolderPickerOpen(false); }}
         onMouseEnter={() => setHovered('collapse')}
         onMouseLeave={() => setHovered(null)}
         style={{
           ...btnBase,
-          background: hovered === 'collapse' ? 'var(--pixel-btn-hover-bg)' : btnBase.background,
+          background: hovered === 'collapse' ? 'var(--color-btn-hover)' : btnBase.background,
         }}
         title="收折工具列"
       >
@@ -133,10 +127,10 @@ export function BottomToolbar({
             padding: '5px 12px',
             background:
               hovered === 'agent' || isFolderPickerOpen
-                ? 'var(--pixel-agent-hover-bg)'
-                : 'var(--pixel-agent-bg)',
-            border: '2px solid var(--pixel-agent-border)',
-            color: 'var(--pixel-agent-text)',
+                ? 'var(--color-agent-hover)'
+                : 'var(--color-agent-bg)',
+            border: '2px solid var(--color-agent-border)',
+            color: 'var(--color-agent-text)',
           }}
         >
           + Agent
@@ -148,10 +142,10 @@ export function BottomToolbar({
               bottom: '100%',
               left: 0,
               marginBottom: 4,
-              background: 'var(--pixel-bg)',
-              border: '2px solid var(--pixel-border)',
+              background: 'var(--color-bg)',
+              border: '2px solid var(--color-border)',
               borderRadius: 0,
-              boxShadow: 'var(--pixel-shadow)',
+              boxShadow: 'var(--shadow-pixel)',
               minWidth: 160,
               zIndex: 'var(--pixel-controls-z)',
             }}
@@ -168,8 +162,8 @@ export function BottomToolbar({
                   textAlign: 'left',
                   padding: '6px 10px',
                   fontSize: '22px',
-                  color: 'var(--pixel-text)',
-                  background: hoveredFolder === i ? 'var(--pixel-btn-hover-bg)' : 'transparent',
+                  color: 'var(--color-text)',
+                  background: hoveredFolder === i ? 'var(--color-btn-hover)' : 'transparent',
                   border: 'none',
                   borderRadius: 0,
                   cursor: 'pointer',
@@ -191,7 +185,7 @@ export function BottomToolbar({
             ? { ...btnActive }
             : {
                 ...btnBase,
-                background: hovered === 'edit' ? 'var(--pixel-btn-hover-bg)' : btnBase.background,
+                background: hovered === 'edit' ? 'var(--color-btn-hover)' : btnBase.background,
               }
         }
         title="Edit office layout"
@@ -200,7 +194,7 @@ export function BottomToolbar({
       </button>
       <div style={{ position: 'relative' }}>
         <button
-          onClick={() => setIsSettingsOpen((v) => !v)}
+          onClick={onToggleSettings}
           onMouseEnter={() => setHovered('settings')}
           onMouseLeave={() => setHovered(null)}
           style={
@@ -209,21 +203,13 @@ export function BottomToolbar({
               : {
                   ...btnBase,
                   background:
-                    hovered === 'settings' ? 'var(--pixel-btn-hover-bg)' : btnBase.background,
+                    hovered === 'settings' ? 'var(--color-btn-hover)' : btnBase.background,
                 }
           }
           title="Settings"
         >
           Settings
         </button>
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-          isDebugMode={isDebugMode}
-          onToggleDebugMode={onToggleDebugMode}
-          alwaysShowOverlay={alwaysShowOverlay}
-          onToggleAlwaysShowOverlay={onToggleAlwaysShowOverlay}
-        />
       </div>
     </div>
   );

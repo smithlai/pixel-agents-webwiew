@@ -1,7 +1,9 @@
+import type { ColorValue } from '../../components/ui/types.js';
 import {
   BUBBLE_FADE_DURATION_SEC,
   BUBBLE_SITTING_OFFSET_PX,
   BUBBLE_VERTICAL_OFFSET_PX,
+  BUTTON_ICON_COLOR,
   BUTTON_ICON_SIZE_FACTOR,
   BUTTON_LINE_WIDTH_MIN,
   BUTTON_LINE_WIDTH_ZOOM_FACTOR,
@@ -44,7 +46,6 @@ import {
 } from '../sprites/spriteData.js';
 import type {
   Character,
-  FloorColor,
   FurnitureInstance,
   Seat,
   SpriteData,
@@ -57,13 +58,14 @@ import { renderMatrixEffect } from './matrixEffect.js';
 
 // ── Render functions ────────────────────────────────────────────
 
+/** @internal */
 export function renderTileGrid(
   ctx: CanvasRenderingContext2D,
   tileMap: TileTypeVal[][],
   offsetX: number,
   offsetY: number,
   zoom: number,
-  tileColors?: Array<FloorColor | null>,
+  tileColors?: Array<ColorValue | null>,
   cols?: number,
 ): void {
   const s = TILE_SIZE * zoom;
@@ -108,6 +110,7 @@ interface ZDrawable {
   draw: (ctx: CanvasRenderingContext2D) => void;
 }
 
+/** @internal */
 export function renderScene(
   ctx: CanvasRenderingContext2D,
   furniture: FurnitureInstance[],
@@ -215,7 +218,7 @@ export function renderScene(
 
 // ── Seat indicators ─────────────────────────────────────────────
 
-export function renderSeatIndicators(
+function renderSeatIndicators(
   ctx: CanvasRenderingContext2D,
   seats: Map<string, Seat>,
   characters: Map<number, Character>,
@@ -254,6 +257,7 @@ export function renderSeatIndicators(
 
 // ── Edit mode overlays ──────────────────────────────────────────
 
+/** @internal */
 export function renderGridOverlay(
   ctx: CanvasRenderingContext2D,
   offsetX: number,
@@ -299,7 +303,7 @@ export function renderGridOverlay(
 }
 
 /** Draw faint expansion placeholders 1 tile outside grid bounds (ghost border). */
-export function renderGhostBorder(
+function renderGhostBorder(
   ctx: CanvasRenderingContext2D,
   offsetX: number,
   offsetY: number,
@@ -342,6 +346,7 @@ export function renderGhostBorder(
   ctx.restore();
 }
 
+/** @internal */
 export function renderGhostPreview(
   ctx: CanvasRenderingContext2D,
   sprite: SpriteData,
@@ -374,6 +379,7 @@ export function renderGhostPreview(
   ctx.restore();
 }
 
+/** @internal */
 export function renderSelectionHighlight(
   ctx: CanvasRenderingContext2D,
   col: number,
@@ -395,6 +401,7 @@ export function renderSelectionHighlight(
   ctx.restore();
 }
 
+/** @internal */
 export function renderDeleteButton(
   ctx: CanvasRenderingContext2D,
   col: number,
@@ -419,7 +426,7 @@ export function renderDeleteButton(
   ctx.fill();
 
   // X mark
-  ctx.strokeStyle = '#fff';
+  ctx.strokeStyle = BUTTON_ICON_COLOR;
   ctx.lineWidth = Math.max(BUTTON_LINE_WIDTH_MIN, zoom * BUTTON_LINE_WIDTH_ZOOM_FACTOR);
   ctx.lineCap = 'round';
   const xSize = radius * BUTTON_ICON_SIZE_FACTOR;
@@ -434,7 +441,7 @@ export function renderDeleteButton(
   return { cx, cy, radius };
 }
 
-export function renderRotateButton(
+function renderRotateButton(
   ctx: CanvasRenderingContext2D,
   col: number,
   row: number,
@@ -458,7 +465,7 @@ export function renderRotateButton(
   ctx.fill();
 
   // Circular arrow icon
-  ctx.strokeStyle = '#fff';
+  ctx.strokeStyle = BUTTON_ICON_COLOR;
   ctx.lineWidth = Math.max(BUTTON_LINE_WIDTH_MIN, zoom * BUTTON_LINE_WIDTH_ZOOM_FACTOR);
   ctx.lineCap = 'round';
   const arcR = radius * BUTTON_ICON_SIZE_FACTOR;
@@ -483,7 +490,7 @@ export function renderRotateButton(
 
 // ── Speech bubbles ──────────────────────────────────────────────
 
-export function renderBubbles(
+function renderBubbles(
   ctx: CanvasRenderingContext2D,
   characters: Character[],
   offsetX: number,
@@ -623,7 +630,7 @@ export function renderFrame(
   panY: number,
   selection?: SelectionRenderState,
   editor?: EditorRenderState,
-  tileColors?: Array<FloorColor | null>,
+  tileColors?: Array<ColorValue | null>,
   layoutCols?: number,
   layoutRows?: number,
 ): { offsetX: number; offsetY: number } {

@@ -18,11 +18,11 @@ const containerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 4,
-  background: 'var(--pixel-bg)',
-  border: '2px solid var(--pixel-border)',
+  background: 'var(--color-bg)',
+  border: '2px solid var(--color-border)',
   borderRadius: 0,
   padding: '4px 6px',
-  boxShadow: 'var(--pixel-shadow)',
+  boxShadow: 'var(--shadow-pixel)',
   width: 'min(640px, 70vw)',
 };
 
@@ -30,9 +30,9 @@ const inputStyle: React.CSSProperties = {
   flex: 1,
   padding: '5px 10px',
   fontSize: '16px',
-  color: 'var(--pixel-text)',
-  background: 'var(--pixel-btn-bg)',
-  border: '2px solid var(--pixel-border)',
+  color: 'var(--color-text)',
+  background: 'var(--color-btn-bg)',
+  border: '2px solid var(--color-border)',
   borderRadius: 0,
   outline: 'none',
   fontFamily: "'Segoe UI', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif",
@@ -41,9 +41,9 @@ const inputStyle: React.CSSProperties = {
 const btnStyle: React.CSSProperties = {
   padding: '5px 12px',
   fontSize: '22px',
-  color: 'var(--pixel-agent-text)',
-  background: 'var(--pixel-agent-bg)',
-  border: '2px solid var(--pixel-agent-border)',
+  color: 'var(--color-agent-text)',
+  background: 'var(--color-agent-bg)',
+  border: '2px solid var(--color-agent-border)',
   borderRadius: 0,
   cursor: 'pointer',
   fontFamily: 'inherit',
@@ -53,9 +53,9 @@ const btnStyle: React.CSSProperties = {
 const selectStyle: React.CSSProperties = {
   padding: '5px 6px',
   fontSize: '14px',
-  color: 'var(--pixel-text)',
-  background: 'var(--pixel-btn-bg)',
-  border: '2px solid var(--pixel-border)',
+  color: 'var(--color-text)',
+  background: 'var(--color-btn-bg)',
+  border: '2px solid var(--color-border)',
   borderRadius: 0,
   outline: 'none',
   fontFamily: "'Segoe UI', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif",
@@ -90,7 +90,7 @@ export function CommandInput({ onSubmit, deviceInfo }: CommandInputProps) {
 
   return (
     <div style={containerStyle}>
-      <span style={{ fontSize: '22px', color: 'var(--pixel-text-dim)', padding: '0 4px', whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: '22px', color: 'var(--color-text-muted)', padding: '0 4px', whiteSpace: 'nowrap' }}>
         Boss &gt;
       </span>
       {devices.length > 1 && (

@@ -3,8 +3,8 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { JSONL_POLL_INTERVAL_MS } from '../server/src/constants.js';
 import {
-  JSONL_POLL_INTERVAL_MS,
   TERMINAL_NAME_PREFIX,
   WORKSPACE_KEY_AGENT_SEATS,
   WORKSPACE_KEY_AGENTS,
@@ -14,12 +14,44 @@ import { migrateAndLoadLayout } from './layoutPersistence.js';
 import { cancelPermissionTimer, cancelWaitingTimer } from './timerManager.js';
 import type { AgentState, PersistedAgent } from './types.js';
 
-export function getProjectDirPath(cwd?: string): string | null {
-  const workspacePath = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspacePath) return null;
+export function getProjectDirPath(cwd?: string): string {
+  // Fall back to home directory when no workspace folder is open.
+  // This is the common case on Linux/macOS when VS Code is launched without a folder
+  // (e.g. `code` with no arguments). Claude Code writes JSONL files to
+  // ~/.claude/projects/<hash>/ where <hash> is derived from the process cwd, so we
+  // must use the same directory as the terminal's working directory.
+  const workspacePath = cwd || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || os.homedir();
   const dirName = workspacePath.replace(/[^a-zA-Z0-9-]/g, '-');
   const projectDir = path.join(os.homedir(), '.claude', 'projects', dirName);
   console.log(`[Pixel Agents] Project dir: ${workspacePath} → ${dirName}`);
+
+  // Verify the directory exists; if not, try fuzzy matching against existing dirs
+  if (!fs.existsSync(projectDir)) {
+    const projectsRoot = path.join(os.homedir(), '.claude', 'projects');
+    try {
+      if (fs.existsSync(projectsRoot)) {
+        const candidates = fs.readdirSync(projectsRoot);
+        // Try case-insensitive match (handles Windows drive letter casing)
+        const lowerDirName = dirName.toLowerCase();
+        const match = candidates.find((c) => c.toLowerCase() === lowerDirName);
+        if (match && match !== dirName) {
+          const matchedDir = path.join(projectsRoot, match);
+          console.log(
+            `[Pixel Agents] Project dir not found, using case-insensitive match: ${dirName} → ${match}`,
+          );
+          return matchedDir;
+        }
+        if (!match) {
+          console.warn(
+            `[Pixel Agents] Project dir does not exist: ${projectDir}. ` +
+              `Available dirs (${candidates.length}): ${candidates.slice(0, 5).join(', ')}${candidates.length > 5 ? '...' : ''}`,
+          );
+        }
+      }
+    } catch {
+      // Ignore scan errors
+    }
+  }
   return projectDir;
 }
 
@@ -38,9 +70,13 @@ export async function launchNewTerminal(
   webview: vscode.Webview | undefined,
   persistAgents: () => void,
   folderPath?: string,
+  bypassPermissions?: boolean,
 ): Promise<void> {
   const folders = vscode.workspace.workspaceFolders;
-  const cwd = folderPath || folders?.[0]?.uri.fsPath;
+  // Use home directory as fallback cwd when no workspace is open (common on Linux/macOS).
+  // This ensures the terminal starts in a predictable location that matches the project
+  // dir hash Claude Code will use for JSONL transcript files.
+  const cwd = folderPath || folders?.[0]?.uri.fsPath || os.homedir();
   const isMultiRoot = !!(folders && folders.length > 1);
   const idx = nextTerminalIndexRef.current++;
   const terminal = vscode.window.createTerminal({
@@ -50,13 +86,12 @@ export async function launchNewTerminal(
   terminal.show();
 
   const sessionId = crypto.randomUUID();
-  terminal.sendText(`claude --session-id ${sessionId}`);
+  const claudeCmd = bypassPermissions
+    ? `claude --session-id ${sessionId} --dangerously-skip-permissions`
+    : `claude --session-id ${sessionId}`;
+  terminal.sendText(claudeCmd);
 
   const projectDir = getProjectDirPath(cwd);
-  if (!projectDir) {
-    console.log(`[Pixel Agents] No project dir, cannot track agent`);
-    return;
-  }
 
   // Pre-register expected JSONL file so project scan won't treat it as a /clear file
   const expectedFile = path.join(projectDir, `${sessionId}.jsonl`);
@@ -67,7 +102,9 @@ export async function launchNewTerminal(
   const folderName = isMultiRoot && cwd ? path.basename(cwd) : undefined;
   const agent: AgentState = {
     id,
+    sessionId,
     terminalRef: terminal,
+    isExternal: false,
     projectDir,
     jsonlFile: expectedFile,
     fileOffset: 0,
@@ -77,10 +114,15 @@ export async function launchNewTerminal(
     activeToolNames: new Map(),
     activeSubagentToolIds: new Map(),
     activeSubagentToolNames: new Map(),
+    backgroundAgentToolIds: new Set(),
     isWaiting: false,
     permissionSent: false,
     hadToolsInTurn: false,
+    lastDataAt: 0,
+    linesProcessed: 0,
+    seenUnknownRecordTypes: new Set(),
     folderName,
+    hookDelivered: false,
   };
 
   agents.set(id, agent);
@@ -105,11 +147,14 @@ export async function launchNewTerminal(
   );
 
   // Poll for the specific JSONL file to appear
+  let pollCount = 0;
+  console.log(`[Pixel Agents] Agent ${id}: waiting for JSONL at ${agent.jsonlFile}`);
   const pollTimer = setInterval(() => {
+    pollCount++;
     try {
       if (fs.existsSync(agent.jsonlFile)) {
         console.log(
-          `[Pixel Agents] Agent ${id}: found JSONL file ${path.basename(agent.jsonlFile)}`,
+          `[Pixel Agents] Agent ${id}: found JSONL file ${path.basename(agent.jsonlFile)} (after ${pollCount}s)`,
         );
         clearInterval(pollTimer);
         jsonlPollTimers.delete(id);
@@ -124,6 +169,27 @@ export async function launchNewTerminal(
           webview,
         );
         readNewLines(id, agents, waitingTimers, permissionTimers, webview);
+      } else if (pollCount === 10) {
+        // After 10s of polling, warn with path details to help diagnose path encoding mismatches
+        const dirExists = fs.existsSync(projectDir);
+        let dirContents = '';
+        if (dirExists) {
+          try {
+            const files = fs.readdirSync(projectDir).filter((f) => f.endsWith('.jsonl'));
+            dirContents =
+              files.length > 0
+                ? `Dir has ${files.length} JSONL file(s): ${files.slice(0, 3).join(', ')}${files.length > 3 ? '...' : ''}`
+                : 'Dir exists but has no JSONL files';
+          } catch {
+            dirContents = 'Dir exists but unreadable';
+          }
+        } else {
+          dirContents = 'Dir does not exist';
+        }
+        console.warn(
+          `[Pixel Agents] Agent ${id}: JSONL file not found after 10s. ` +
+            `Expected: ${agent.jsonlFile}. ${dirContents}`,
+        );
       }
     } catch {
       /* file may not exist yet */
@@ -160,11 +226,6 @@ export function removeAgent(
     clearInterval(pt);
   }
   pollingTimers.delete(agentId);
-  try {
-    fs.unwatchFile(agent.jsonlFile);
-  } catch {
-    /* ignore */
-  }
 
   // Cancel timers
   cancelWaitingTimer(agentId, waitingTimers);
@@ -183,7 +244,9 @@ export function persistAgents(
   for (const agent of agents.values()) {
     persisted.push({
       id: agent.id,
-      terminalName: agent.terminalRef.name,
+      sessionId: agent.sessionId,
+      terminalName: agent.terminalRef?.name ?? '',
+      isExternal: agent.isExternal || undefined,
       jsonlFile: agent.jsonlFile,
       projectDir: agent.projectDir,
       folderName: agent.folderName,
@@ -217,12 +280,34 @@ export function restoreAgents(
   let restoredProjectDir: string | null = null;
 
   for (const p of persisted) {
-    const terminal = liveTerminals.find((t) => t.name === p.terminalName);
-    if (!terminal) continue;
+    // Skip agents already in the map — prevents duplicate file watchers on re-entry
+    // (webviewReady fires on every panel focus, re-calling restoreAgents each time)
+    if (agents.has(p.id)) {
+      knownJsonlFiles.add(p.jsonlFile);
+      continue;
+    }
+
+    let terminal: vscode.Terminal | undefined;
+    const isExternal = p.isExternal ?? false;
+
+    if (isExternal) {
+      // External agents — restore if JSONL file still exists on disk
+      try {
+        if (!fs.existsSync(p.jsonlFile)) continue;
+      } catch {
+        continue;
+      }
+    } else {
+      // Terminal agents — find matching terminal by name
+      terminal = liveTerminals.find((t) => t.name === p.terminalName);
+      if (!terminal) continue;
+    }
 
     const agent: AgentState = {
       id: p.id,
+      sessionId: p.sessionId || path.basename(p.jsonlFile, '.jsonl'),
       terminalRef: terminal,
+      isExternal,
       projectDir: p.projectDir,
       jsonlFile: p.jsonlFile,
       fileOffset: 0,
@@ -232,15 +317,24 @@ export function restoreAgents(
       activeToolNames: new Map(),
       activeSubagentToolIds: new Map(),
       activeSubagentToolNames: new Map(),
+      backgroundAgentToolIds: new Set(),
       isWaiting: false,
       permissionSent: false,
       hadToolsInTurn: false,
+      lastDataAt: 0,
+      linesProcessed: 0,
+      seenUnknownRecordTypes: new Set(),
       folderName: p.folderName,
+      hookDelivered: false,
     };
 
     agents.set(p.id, agent);
     knownJsonlFiles.add(p.jsonlFile);
-    console.log(`[Pixel Agents] Restored agent ${p.id} → terminal "${p.terminalName}"`);
+    if (isExternal) {
+      console.log(`[Pixel Agents] Restored external agent ${p.id} → ${path.basename(p.jsonlFile)}`);
+    } else {
+      console.log(`[Pixel Agents] Restored agent ${p.id} → terminal "${p.terminalName}"`);
+    }
 
     if (p.id > maxId) maxId = p.id;
     // Extract terminal index from name like "Claude Code #3"
@@ -299,6 +393,35 @@ export function restoreAgents(
     }
   }
 
+  // After a short delay, remove restored terminal agents that never received data.
+  // These are dead terminals restored by VS Code (e.g., after /clear or restart)
+  // where Claude is no longer running.
+  const restoredTerminalIds = [...agents.entries()]
+    .filter(([, a]) => !a.isExternal && a.terminalRef)
+    .map(([id]) => id);
+  if (restoredTerminalIds.length > 0) {
+    setTimeout(() => {
+      for (const id of restoredTerminalIds) {
+        const agent = agents.get(id);
+        if (agent && !agent.isExternal && agent.linesProcessed === 0) {
+          console.log(`[Pixel Agents] Removing restored terminal agent ${id}: no data received`);
+          agent.terminalRef?.dispose();
+          removeAgent(
+            id,
+            agents,
+            fileWatchers,
+            pollingTimers,
+            waitingTimers,
+            permissionTimers,
+            jsonlPollTimers,
+            doPersist,
+          );
+          webview?.postMessage({ type: 'agentClosed', id });
+        }
+      }
+    }, 10_000); // 10 seconds grace period
+  }
+
   // Advance counters past restored IDs
   if (maxId >= nextAgentIdRef.current) {
     nextAgentIdRef.current = maxId + 1;
@@ -346,11 +469,15 @@ export function sendExistingAgents(
     Record<string, { palette?: number; seatId?: string }>
   >(WORKSPACE_KEY_AGENT_SEATS, {});
 
-  // Include folderName per agent
+  // Include folderName and isExternal per agent
   const folderNames: Record<number, string> = {};
+  const externalAgents: Record<number, boolean> = {};
   for (const [id, agent] of agents) {
     if (agent.folderName) {
       folderNames[id] = agent.folderName;
+    }
+    if (agent.isExternal) {
+      externalAgents[id] = true;
     }
   }
   console.log(
@@ -362,9 +489,10 @@ export function sendExistingAgents(
     agents: agentIds,
     agentMeta,
     folderNames,
+    externalAgents,
   });
-
-  sendCurrentAgentStatuses(agents, webview);
+  // Note: sendCurrentAgentStatuses is called separately AFTER layoutLoaded
+  // so that agentStatus/agentToolStart messages arrive after characters are created.
 }
 
 export function sendCurrentAgentStatuses(
@@ -375,11 +503,13 @@ export function sendCurrentAgentStatuses(
   for (const [agentId, agent] of agents) {
     // Re-send active tools
     for (const [toolId, status] of agent.activeToolStatuses) {
+      const toolName = agent.activeToolNames.get(toolId) ?? '';
       webview.postMessage({
         type: 'agentToolStart',
         id: agentId,
         toolId,
         status,
+        toolName,
       });
     }
     // Re-send waiting status

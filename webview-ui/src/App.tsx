@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { toMajorMinor } from './changelogData.js';
 import { AgentStatusPanel } from './components/AgentStatusPanel.js';
 import { BottomToolbar } from './components/BottomToolbar.js';
+import { ChangelogModal } from './components/ChangelogModal.js';
 import { CommandInput } from './components/CommandInput.js';
 import { DebugView } from './components/DebugView.js';
+import { SettingsModal } from './components/SettingsModal.js';
+import { VersionIndicator } from './components/VersionIndicator.js';
 import { ZoomControls } from './components/ZoomControls.js';
 import { PULSE_ANIMATION_DURATION_SEC } from './constants.js';
 import { useEditorActions } from './hooks/useEditorActions.js';
@@ -33,8 +37,8 @@ function getOfficeState(): OfficeState {
 const actionBarBtnStyle: React.CSSProperties = {
   padding: '4px 10px',
   fontSize: '22px',
-  background: 'var(--pixel-btn-bg)',
-  color: 'var(--pixel-text-dim)',
+  background: 'var(--color-btn-bg)',
+  color: 'var(--color-text-muted)',
   border: '2px solid transparent',
   borderRadius: 0,
   cursor: 'pointer',
@@ -42,7 +46,7 @@ const actionBarBtnStyle: React.CSSProperties = {
 
 const actionBarBtnDisabled: React.CSSProperties = {
   ...actionBarBtnStyle,
-  opacity: 'var(--pixel-btn-disabled-opacity)',
+  opacity: 'var(--btn-disabled-opacity)',
   cursor: 'default',
 };
 
@@ -69,11 +73,11 @@ function EditActionBar({
         display: 'flex',
         gap: 4,
         alignItems: 'center',
-        background: 'var(--pixel-bg)',
-        border: '2px solid var(--pixel-border)',
+        background: 'var(--color-bg)',
+        border: '2px solid var(--color-border)',
         borderRadius: 0,
         padding: '4px 8px',
-        boxShadow: 'var(--pixel-shadow)',
+        boxShadow: 'var(--shadow-pixel)',
       }}
     >
       <button
@@ -103,9 +107,9 @@ function EditActionBar({
         </button>
       ) : (
         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-          <span style={{ fontSize: '22px', color: 'var(--pixel-reset-text)' }}>Reset?</span>
+          <span style={{ fontSize: '22px', color: 'var(--color-reset-text)' }}>Reset?</span>
           <button
-            style={{ ...actionBarBtnStyle, background: 'var(--pixel-danger-bg)', color: '#fff' }}
+            style={{ ...actionBarBtnStyle, background: 'var(--color-danger)', color: '#fff' }}
             onClick={() => {
               setShowResetConfirm(false);
               editor.handleReset();
@@ -150,6 +154,14 @@ function App() {
     loadedAssets,
     workspaceFolders,
     deviceInfo,
+    externalAssetDirectories,
+    lastSeenVersion,
+    extensionVersion,
+    watchAllSessions,
+    setWatchAllSessions,
+    alwaysShowLabels,
+    hooksEnabled,
+    setHooksEnabled,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
   // Show migration notice once layout reset is detected
@@ -158,12 +170,36 @@ function App() {
 
   const [isDebugMode, setIsDebugMode] = useState(false);
   const [alwaysShowOverlay, setAlwaysShowOverlay] = useState(isBrowserRuntime);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
+
+  // Sync alwaysShowOverlay from extension settings
+  useEffect(() => {
+    setAlwaysShowOverlay(alwaysShowLabels);
+  }, [alwaysShowLabels]);
+
+  const currentMajorMinor = toMajorMinor(extensionVersion);
 
   const handleToggleDebugMode = useCallback(() => setIsDebugMode((prev) => !prev), []);
   const handleToggleAlwaysShowOverlay = useCallback(
-    () => setAlwaysShowOverlay((prev) => !prev),
+    () => {
+      setAlwaysShowOverlay((prev) => {
+        const newVal = !prev;
+        vscode.postMessage({ type: 'setAlwaysShowLabels', enabled: newVal });
+        return newVal;
+      });
+    },
     [],
   );
+
+  const handleWhatsNewDismiss = useCallback(() => {
+    vscode.postMessage({ type: 'setLastSeenVersion', version: currentMajorMinor });
+  }, [currentMajorMinor]);
+
+  const handleOpenChangelog = useCallback(() => {
+    setIsChangelogOpen(true);
+    vscode.postMessage({ type: 'setLastSeenVersion', version: currentMajorMinor });
+  }, [currentMajorMinor]);
 
   const handleSelectAgent = useCallback((id: number) => {
     vscode.postMessage({ type: 'focusAgent', id });
@@ -333,7 +369,7 @@ function App() {
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'var(--pixel-vignette)',
+          background: 'var(--vignette)',
           pointerEvents: 'none',
           zIndex: 40,
         }}
@@ -343,11 +379,44 @@ function App() {
         isEditMode={editor.isEditMode}
         onOpenClaude={editor.handleOpenClaude}
         onToggleEditMode={editor.handleToggleEditMode}
+        isSettingsOpen={isSettingsOpen}
+        onToggleSettings={() => setIsSettingsOpen((v) => !v)}
+        workspaceFolders={workspaceFolders}
+      />
+
+      <VersionIndicator
+        currentVersion={extensionVersion}
+        lastSeenVersion={lastSeenVersion}
+        onDismiss={handleWhatsNewDismiss}
+        onOpenChangelog={handleOpenChangelog}
+      />
+
+      <ChangelogModal
+        isOpen={isChangelogOpen}
+        onClose={() => setIsChangelogOpen(false)}
+        currentVersion={extensionVersion}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
         isDebugMode={isDebugMode}
         onToggleDebugMode={handleToggleDebugMode}
         alwaysShowOverlay={alwaysShowOverlay}
         onToggleAlwaysShowOverlay={handleToggleAlwaysShowOverlay}
-        workspaceFolders={workspaceFolders}
+        externalAssetDirectories={externalAssetDirectories}
+        watchAllSessions={watchAllSessions}
+        onToggleWatchAllSessions={() => {
+          const newVal = !watchAllSessions;
+          setWatchAllSessions(newVal);
+          vscode.postMessage({ type: 'setWatchAllSessions', enabled: newVal });
+        }}
+        hooksEnabled={hooksEnabled}
+        onToggleHooksEnabled={() => {
+          const newVal = !hooksEnabled;
+          setHooksEnabled(newVal);
+          vscode.postMessage({ type: 'setHooksEnabled', enabled: newVal });
+        }}
       />
 
       {!editor.isEditMode && !isDebugMode && isBrowserRuntime && (
@@ -366,13 +435,13 @@ function App() {
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 49,
-            background: 'var(--pixel-hint-bg)',
+            background: 'var(--color-bg-dark)',
             color: '#fff',
             fontSize: '20px',
             padding: '3px 8px',
             borderRadius: 0,
-            border: '2px solid var(--pixel-accent)',
-            boxShadow: 'var(--pixel-shadow)',
+            border: '2px solid var(--color-accent)',
+            boxShadow: 'var(--shadow-pixel)',
             pointerEvents: 'none',
             whiteSpace: 'nowrap',
           }}
@@ -450,32 +519,32 @@ function App() {
         >
           <div
             style={{
-              background: 'var(--pixel-bg)',
-              border: '2px solid var(--pixel-border)',
+              background: 'var(--color-bg)',
+              border: '2px solid var(--color-border)',
               borderRadius: 0,
               padding: '24px 32px',
               maxWidth: 620,
-              boxShadow: 'var(--pixel-shadow)',
+              boxShadow: 'var(--shadow-pixel)',
               textAlign: 'center',
               lineHeight: 1.3,
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ fontSize: '40px', marginBottom: 12, color: 'var(--pixel-accent)' }}>
+            <div style={{ fontSize: '40px', marginBottom: 12, color: 'var(--color-accent)' }}>
               We owe you an apology!
             </div>
-            <p style={{ fontSize: '26px', color: 'var(--pixel-text)', margin: '0 0 12px 0' }}>
+            <p style={{ fontSize: '26px', color: 'var(--color-text)', margin: '0 0 12px 0' }}>
               We've just migrated to fully open-source assets, all built from scratch with love.
               Unfortunately, this means your previous layout had to be reset.
             </p>
-            <p style={{ fontSize: '26px', color: 'var(--pixel-text)', margin: '0 0 12px 0' }}>
+            <p style={{ fontSize: '26px', color: 'var(--color-text)', margin: '0 0 12px 0' }}>
               We're really sorry about that.
             </p>
-            <p style={{ fontSize: '26px', color: 'var(--pixel-text)', margin: '0 0 12px 0' }}>
+            <p style={{ fontSize: '26px', color: 'var(--color-text)', margin: '0 0 12px 0' }}>
               The good news? This was a one-time thing, and it paves the way for some genuinely
               exciting updates ahead.
             </p>
-            <p style={{ fontSize: '26px', color: 'var(--pixel-text-dim)', margin: '0 0 20px 0' }}>
+            <p style={{ fontSize: '26px', color: 'var(--color-text-muted)', margin: '0 0 20px 0' }}>
               Stay tuned, and thanks for using Pixel Agents!
             </p>
             <button
@@ -483,12 +552,12 @@ function App() {
               style={{
                 padding: '6px 24px 8px',
                 fontSize: '30px',
-                background: 'var(--pixel-accent)',
+                background: 'var(--color-accent)',
                 color: '#fff',
-                border: '2px solid var(--pixel-accent)',
+                border: '2px solid var(--color-accent)',
                 borderRadius: 0,
                 cursor: 'pointer',
-                boxShadow: 'var(--pixel-shadow)',
+                boxShadow: 'var(--shadow-pixel)',
               }}
               onClick={() => setMigrationNoticeDismissed(true)}
             >

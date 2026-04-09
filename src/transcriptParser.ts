@@ -6,7 +6,7 @@ import {
   TASK_DESCRIPTION_DISPLAY_MAX_LENGTH,
   TEXT_IDLE_DELAY_MS,
   TOOL_DONE_DELAY_MS,
-} from './constants.js';
+} from '../server/src/constants.js';
 import {
   cancelPermissionTimer,
   cancelWaitingTimer,
@@ -16,9 +16,9 @@ import {
 } from './timerManager.js';
 import type { AgentState } from './types.js';
 
-export const PERMISSION_EXEMPT_TOOLS = new Set(['Task', 'Agent', 'AskUserQuestion']);
+const PERMISSION_EXEMPT_TOOLS = new Set(['Task', 'Agent', 'AskUserQuestion']);
 
-export function formatToolStatus(toolName: string, input: Record<string, unknown>): string {
+function formatToolStatus(toolName: string, input: Record<string, unknown>): string {
   const base = (p: unknown) => (typeof p === 'string' ? path.basename(p) : '');
   switch (toolName) {
     case 'Read':
@@ -67,11 +67,17 @@ export function processTranscriptLine(
 ): void {
   const agent = agents.get(agentId);
   if (!agent) return;
+  agent.lastDataAt = Date.now();
+  agent.linesProcessed++;
   try {
     const record = JSON.parse(line);
 
-    if (record.type === 'assistant' && Array.isArray(record.message?.content)) {
-      const blocks = record.message.content as Array<{
+    // Resilient content extraction: support both record.message.content and record.content
+    // Claude Code may change the JSONL structure across versions
+    const assistantContent = record.message?.content ?? record.content;
+
+    if (record.type === 'assistant' && Array.isArray(assistantContent)) {
+      const blocks = assistantContent as Array<{
         type: string;
         id?: string;
         name?: string;
@@ -101,10 +107,12 @@ export function processTranscriptLine(
               id: agentId,
               toolId: block.id,
               status,
+              toolName,
+              permissionActive: agent.permissionSent,
             });
           }
         }
-        if (hasNonExemptTool) {
+        if (hasNonExemptTool && !agent.hookDelivered) {
           startPermissionTimer(agentId, agents, permissionTimers, PERMISSION_EXEMPT_TOOLS, webview);
         }
       } else if (blocks.some((b) => b.type === 'text') && !agent.hadToolsInTurn) {
@@ -112,22 +120,48 @@ export function processTranscriptLine(
         // turn_duration handles tool-using turns reliably but is never
         // emitted for text-only turns, so we use a silence-based timer:
         // if no new JSONL data arrives within TEXT_IDLE_DELAY_MS, mark as waiting.
+        // Skip when hooks are active — Stop hook handles this exactly.
+        if (!agent.hookDelivered) {
+          startWaitingTimer(agentId, TEXT_IDLE_DELAY_MS, agents, waitingTimers, webview);
+        }
+      }
+    } else if (record.type === 'assistant' && typeof assistantContent === 'string') {
+      // Text-only assistant response (content is a string, not an array)
+      if (!agent.hadToolsInTurn && !agent.hookDelivered) {
         startWaitingTimer(agentId, TEXT_IDLE_DELAY_MS, agents, waitingTimers, webview);
       }
+    } else if (record.type === 'assistant' && assistantContent === undefined) {
+      // Assistant record with no recognizable content structure
+      console.warn(
+        `[Pixel Agents] Agent ${agentId}: assistant record has no content. Keys: ${Object.keys(record).join(', ')}`,
+      );
     } else if (record.type === 'progress') {
       processProgressRecord(agentId, record, agents, waitingTimers, permissionTimers, webview);
     } else if (record.type === 'user') {
-      const content = record.message?.content;
+      const content = record.message?.content ?? record.content;
       if (Array.isArray(content)) {
         const blocks = content as Array<{ type: string; tool_use_id?: string }>;
         const hasToolResult = blocks.some((b) => b.type === 'tool_result');
         if (hasToolResult) {
           for (const block of blocks) {
             if (block.type === 'tool_result' && block.tool_use_id) {
-              console.log(`[Pixel Agents] Agent ${agentId} tool done: ${block.tool_use_id}`);
               const completedToolId = block.tool_use_id;
-              // If the completed tool was a Task/Agent, clear its subagent tools
               const completedToolName = agent.activeToolNames.get(completedToolId);
+
+              // Detect background agent launches — keep the tool alive until queue-operation
+              if (
+                (completedToolName === 'Task' || completedToolName === 'Agent') &&
+                isAsyncAgentResult(block)
+              ) {
+                console.log(
+                  `[Pixel Agents] Agent ${agentId} background agent launched: ${completedToolId}`,
+                );
+                agent.backgroundAgentToolIds.add(completedToolId);
+                continue; // don't mark as done yet
+              }
+
+              console.log(`[Pixel Agents] Agent ${agentId} tool done: ${block.tool_use_id}`);
+              // If the completed tool was a Task/Agent, clear its subagent tools
               if (completedToolName === 'Task' || completedToolName === 'Agent') {
                 agent.activeSubagentToolIds.delete(completedToolId);
                 agent.activeSubagentToolNames.delete(completedToolId);
@@ -167,28 +201,109 @@ export function processTranscriptLine(
         clearAgentActivity(agent, agentId, permissionTimers, webview);
         agent.hadToolsInTurn = false;
       }
+    } else if (record.type === 'queue-operation' && record.operation === 'enqueue') {
+      // Background agent completed — parse tool-use-id from XML content
+      const content = record.content as string | undefined;
+      if (content) {
+        const toolIdMatch = content.match(/<tool-use-id>(.*?)<\/tool-use-id>/);
+        if (toolIdMatch) {
+          const completedToolId = toolIdMatch[1];
+          if (agent.backgroundAgentToolIds.has(completedToolId)) {
+            console.log(
+              `[Pixel Agents] Agent ${agentId} background agent done: ${completedToolId}`,
+            );
+            agent.backgroundAgentToolIds.delete(completedToolId);
+            agent.activeSubagentToolIds.delete(completedToolId);
+            agent.activeSubagentToolNames.delete(completedToolId);
+            webview?.postMessage({
+              type: 'subagentClear',
+              id: agentId,
+              parentToolId: completedToolId,
+            });
+            agent.activeToolIds.delete(completedToolId);
+            agent.activeToolStatuses.delete(completedToolId);
+            agent.activeToolNames.delete(completedToolId);
+            const toolId = completedToolId;
+            setTimeout(() => {
+              webview?.postMessage({
+                type: 'agentToolDone',
+                id: agentId,
+                toolId,
+              });
+            }, TOOL_DONE_DELAY_MS);
+          }
+        }
+      }
     } else if (record.type === 'system' && record.subtype === 'turn_duration') {
       cancelWaitingTimer(agentId, waitingTimers);
       cancelPermissionTimer(agentId, permissionTimers);
 
-      // Definitive turn-end: clean up any stale tool state
-      if (agent.activeToolIds.size > 0) {
+      // Definitive turn-end: clean up any stale tool state, but preserve background agents.
+      // When hooks are active, the Stop hook already handled the status change,
+      // but we still perform state cleanup here as a safety net.
+      const hasForegroundTools = agent.activeToolIds.size > agent.backgroundAgentToolIds.size;
+      if (hasForegroundTools) {
+        // Remove only non-background tool state
+        for (const toolId of agent.activeToolIds) {
+          if (agent.backgroundAgentToolIds.has(toolId)) continue;
+          agent.activeToolIds.delete(toolId);
+          agent.activeToolStatuses.delete(toolId);
+          const toolName = agent.activeToolNames.get(toolId);
+          agent.activeToolNames.delete(toolId);
+          if (toolName === 'Task' || toolName === 'Agent') {
+            agent.activeSubagentToolIds.delete(toolId);
+            agent.activeSubagentToolNames.delete(toolId);
+          }
+        }
+        if (!agent.hookDelivered) {
+          webview?.postMessage({ type: 'agentToolsClear', id: agentId });
+        }
+        // Re-send background agent tools so webview keeps their sub-agents alive
+        for (const toolId of agent.backgroundAgentToolIds) {
+          const status = agent.activeToolStatuses.get(toolId);
+          if (status) {
+            webview?.postMessage({
+              type: 'agentToolStart',
+              id: agentId,
+              toolId,
+              status,
+            });
+          }
+        }
+      } else if (agent.activeToolIds.size > 0 && agent.backgroundAgentToolIds.size === 0) {
         agent.activeToolIds.clear();
         agent.activeToolStatuses.clear();
         agent.activeToolNames.clear();
         agent.activeSubagentToolIds.clear();
         agent.activeSubagentToolNames.clear();
-        webview?.postMessage({ type: 'agentToolsClear', id: agentId });
+        if (!agent.hookDelivered) {
+          webview?.postMessage({ type: 'agentToolsClear', id: agentId });
+        }
       }
 
       agent.isWaiting = true;
       agent.permissionSent = false;
       agent.hadToolsInTurn = false;
-      webview?.postMessage({
-        type: 'agentStatus',
-        id: agentId,
-        status: 'waiting',
-      });
+      // Skip status post when hooks already handled it
+      if (!agent.hookDelivered) {
+        webview?.postMessage({
+          type: 'agentStatus',
+          id: agentId,
+          status: 'waiting',
+        });
+      }
+    } else if (record.type && !agent.seenUnknownRecordTypes.has(record.type)) {
+      // Log first occurrence of unrecognized record types to help diagnose issues
+      // where Claude Code changes JSONL format. Known types we intentionally skip:
+      // file-history-snapshot, queue-operation (non-enqueue), etc.
+      const knownSkippableTypes = new Set(['file-history-snapshot', 'system', 'queue-operation']);
+      if (!knownSkippableTypes.has(record.type)) {
+        agent.seenUnknownRecordTypes.add(record.type);
+        console.log(
+          `[Pixel Agents] Agent ${agentId}: unrecognized record type '${record.type}'. ` +
+            `Keys: ${Object.keys(record).join(', ')}`,
+        );
+      }
     }
   } catch {
     // Ignore malformed lines
@@ -199,7 +314,7 @@ function processProgressRecord(
   agentId: number,
   record: Record<string, unknown>,
   agents: Map<number, AgentState>,
-  waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
+  _waitingTimers: Map<number, ReturnType<typeof setTimeout>>,
   permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
   webview: vscode.Webview | undefined,
 ): void {
@@ -214,9 +329,10 @@ function processProgressRecord(
 
   // bash_progress / mcp_progress: tool is actively executing, not stuck on permission.
   // Restart the permission timer to give the running tool another window.
+  // Skip when hooks are active — Notification hook handles permission detection exactly.
   const dataType = data.type as string | undefined;
   if (dataType === 'bash_progress' || dataType === 'mcp_progress') {
-    if (agent.activeToolIds.has(parentToolId)) {
+    if (agent.activeToolIds.has(parentToolId) && !agent.hookDelivered) {
       startPermissionTimer(agentId, agents, permissionTimers, PERMISSION_EXEMPT_TOOLS, webview);
     }
     return;
@@ -273,7 +389,7 @@ function processProgressRecord(
         });
       }
     }
-    if (hasNonExemptSubTool) {
+    if (hasNonExemptSubTool && !agent.hookDelivered) {
       startPermissionTimer(agentId, agents, permissionTimers, PERMISSION_EXEMPT_TOOLS, webview);
     }
   } else if (msgType === 'user') {
@@ -316,8 +432,30 @@ function processProgressRecord(
       }
       if (stillHasNonExempt) break;
     }
-    if (stillHasNonExempt) {
+    if (stillHasNonExempt && !agent.hookDelivered) {
       startPermissionTimer(agentId, agents, permissionTimers, PERMISSION_EXEMPT_TOOLS, webview);
     }
   }
+}
+
+/** Check if a tool_result block indicates an async/background agent launch */
+function isAsyncAgentResult(block: Record<string, unknown>): boolean {
+  const content = block.content;
+  if (Array.isArray(content)) {
+    for (const item of content) {
+      if (
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).text === 'string' &&
+        ((item as Record<string, unknown>).text as string).startsWith(
+          'Async agent launched successfully.',
+        )
+      ) {
+        return true;
+      }
+    }
+  } else if (typeof content === 'string') {
+    return content.startsWith('Async agent launched successfully.');
+  }
+  return false;
 }

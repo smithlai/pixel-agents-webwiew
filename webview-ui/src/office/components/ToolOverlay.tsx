@@ -123,9 +123,9 @@ export function ToolOverlay({
 
         let dotColor: string | null = null;
         if (hasPermission) {
-          dotColor = 'var(--pixel-status-permission)';
+          dotColor = 'var(--color-status-permission)';
         } else if (isActive && hasActiveTools) {
-          dotColor = 'var(--pixel-status-active)';
+          dotColor = 'var(--color-status-active)';
         }
 
         return (
@@ -150,13 +150,13 @@ export function ToolOverlay({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 5,
-                background: 'var(--pixel-bg)',
+                background: 'var(--color-bg)',
                 border: isSelected
-                  ? '2px solid var(--pixel-border-light)'
-                  : '2px solid var(--pixel-border)',
+                  ? '2px solid var(--color-border-light)'
+                  : '2px solid var(--color-border)',
                 borderRadius: 0,
                 padding: isSelected ? '3px 6px 3px 8px' : '3px 8px',
-                boxShadow: 'var(--pixel-shadow)',
+                boxShadow: 'var(--shadow-pixel)',
                 whiteSpace: 'nowrap',
                 maxWidth: 220,
               }}
@@ -180,7 +180,7 @@ export function ToolOverlay({
                       fontSize: isSub ? '11px' : '12px',
                       lineHeight: 1.3,
                       fontStyle: isSub ? 'italic' : undefined,
-                      color: 'var(--vscode-foreground, var(--pixel-text))',
+                      color: 'var(--vscode-foreground, var(--color-text))',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       display: 'block',
@@ -194,7 +194,7 @@ export function ToolOverlay({
                     fontSize: ch.folderName ? '10px' : (isSub ? '11px' : '12px'),
                     lineHeight: 1.3,
                     fontStyle: isSub ? 'italic' : undefined,
-                    color: ch.folderName ? 'var(--pixel-text-dim)' : 'var(--vscode-foreground, var(--pixel-text))',
+                    color: ch.folderName ? 'var(--color-text-muted)' : 'var(--vscode-foreground, var(--color-text))',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     display: 'block',
@@ -213,7 +213,7 @@ export function ToolOverlay({
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: 'var(--pixel-close-text)',
+                    color: 'var(--color-close-text)',
                     cursor: 'pointer',
                     padding: '0 2px',
                     fontSize: '26px',
@@ -222,10 +222,10 @@ export function ToolOverlay({
                     flexShrink: 0,
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = 'var(--pixel-close-hover)';
+                    (e.currentTarget as HTMLElement).style.color = 'var(--color-close-hover)';
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = 'var(--pixel-close-text)';
+                    (e.currentTarget as HTMLElement).style.color = 'var(--color-close-text)';
                   }}
                 >
                   ×

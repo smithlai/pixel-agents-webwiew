@@ -68,9 +68,9 @@ function getStatusInfo(
     (isSub && bubbleType === 'permission') || tools?.some((t) => t.permissionWait && !t.done);
   const hasActiveTools = tools?.some((t) => !t.done);
 
-  if (hasPermission) return { color: 'var(--pixel-status-permission)', label: '需要批准' };
-  if (isActive && hasActiveTools) return { color: 'var(--pixel-status-active)', label: '工作中' };
-  if (isActive) return { color: 'var(--pixel-status-active)', label: '工作中' };
+  if (hasPermission) return { color: 'var(--color-status-permission)', label: '需要批准' };
+  if (isActive && hasActiveTools) return { color: 'var(--color-status-active)', label: '工作中' };
+  if (isActive) return { color: 'var(--color-status-active)', label: '工作中' };
   return { color: 'rgba(255,255,255,0.3)', label: '待命' };
 }
 
@@ -171,7 +171,7 @@ function AgentCard({
     <div
       style={{
         padding: '6px 10px',
-        borderBottom: '1px solid var(--pixel-border)',
+        borderBottom: '1px solid var(--color-border)',
       }}
     >
       {/* Header: name + status + current activity */}
@@ -190,24 +190,24 @@ function AgentCard({
           style={{
             fontSize: isSub ? '18px' : '20px',
             fontStyle: isSub ? 'italic' : undefined,
-            color: 'var(--vscode-foreground, var(--pixel-text))',
+            color: 'var(--vscode-foreground, var(--color-text))',
             fontWeight: isSub ? undefined : 'bold',
           }}
         >
           {name}
         </span>
-        <span style={{ fontSize: '16px', color: 'var(--pixel-text-dim)', flexShrink: 0 }}>
+        <span style={{ fontSize: '16px', color: 'var(--color-text-muted)', flexShrink: 0 }}>
           [{status.label}]
         </span>
         {modelLabel && (
-          <span style={{ fontSize: '13px', color: 'var(--pixel-accent)', flexShrink: 0 }}>
+          <span style={{ fontSize: '13px', color: 'var(--color-accent)', flexShrink: 0 }}>
             {modelLabel}
           </span>
         )}
         <span
           style={{
             fontSize: '14px',
-            color: 'var(--pixel-text)',
+            color: 'var(--color-text)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -220,7 +220,7 @@ function AgentCard({
       </div>
       {/* Room label */}
       {roomLabel && !isSub && (
-        <div style={{ paddingLeft: 16, fontSize: '13px', color: 'var(--pixel-text-dim)', opacity: 0.7 }}>
+        <div style={{ paddingLeft: 16, fontSize: '13px', color: 'var(--color-text-muted)', opacity: 0.7 }}>
           {roomLabel}
         </div>
       )}
@@ -228,7 +228,7 @@ function AgentCard({
       {/* Device info + stop button for dynamic Testers */}
       {isDeviceTester && device && (
         <div style={{ paddingLeft: 16, display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
-          <span style={{ fontSize: '12px', color: 'var(--pixel-text-dim)', fontFamily: 'monospace' }}>
+          <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>
             📱 {device.serial}
           </span>
           {ch.isActive && (
@@ -264,7 +264,7 @@ function AgentCard({
               key={`${entry.timestamp.getTime()}-${i}`}
               style={{
                 fontSize: '14px',
-                color: 'var(--pixel-text-dim)',
+                color: 'var(--color-text-muted)',
                 opacity: 0.85,
                 display: 'flex',
                 gap: 6,
@@ -273,7 +273,7 @@ function AgentCard({
             >
               <span
                 style={{
-                  color: 'var(--pixel-text-dim)',
+                  color: 'var(--color-text-muted)',
                   flexShrink: 0,
                   fontVariantNumeric: 'tabular-nums',
                   opacity: 0.7,
@@ -299,7 +299,7 @@ function AgentCard({
               onClick={toggleExpand}
               style={{
                 fontSize: '13px',
-                color: 'var(--pixel-accent)',
+                color: 'var(--color-accent)',
                 cursor: 'pointer',
                 marginTop: 2,
                 userSelect: 'none',
@@ -334,8 +334,8 @@ export function AgentStatusPanel({
       style={{
         width: 680,
         height: '100%',
-        background: 'var(--pixel-bg)',
-        borderLeft: '2px solid var(--pixel-border)',
+        background: 'var(--color-bg)',
+        borderLeft: '2px solid var(--color-border)',
         padding: '8px 0',
         overflowY: 'auto',
         flexShrink: 0,
@@ -344,9 +344,9 @@ export function AgentStatusPanel({
       <div
         style={{
           fontSize: '18px',
-          color: 'var(--pixel-text-dim)',
+          color: 'var(--color-text-muted)',
           padding: '0 10px 4px',
-          borderBottom: '1px solid var(--pixel-border)',
+          borderBottom: '1px solid var(--color-border)',
           marginBottom: 4,
         }}
       >

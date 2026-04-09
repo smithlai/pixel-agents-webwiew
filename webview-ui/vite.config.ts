@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -100,23 +101,24 @@ function browserMockAssetsPlugin(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  // 載入 .env / .env.local / .env.[mode].local 等環境變數檔
+  // Load .env / .env.local / .env.[mode].local env vars
   const env = loadEnv(mode, process.cwd(), '');
-  const gooseWatchDir = env.GOOSE_WATCH_DIR ?? process.env.GOOSE_WATCH_DIR ?? '';
-  const mobileGooseDir = env.MOBILE_GOOSE_DIR ?? process.env.MOBILE_GOOSE_DIR ?? '';
+  const gooseWatchDir = env.GOOSE_WATCH_DIR || process.env.GOOSE_WATCH_DIR || '';
+  const mobileGooseDir = env.MOBILE_GOOSE_DIR || process.env.MOBILE_GOOSE_DIR || '';
 
   if (gooseWatchDir) {
-    console.log(`[GooseOffice] GOOSE_WATCH_DIR = ${gooseWatchDir}`);
+    console.log('[GooseOffice] GOOSE_WATCH_DIR = ' + gooseWatchDir);
   } else {
-    console.log('[GooseOffice] GOOSE_WATCH_DIR 未設定 — Goose 事件串流停用，僅使用 mock 模式');
-    console.log('[GooseOffice] 提示：複製 .env.example 為 .env.local 並填入路徑即可啟用');
+    console.log('[GooseOffice] GOOSE_WATCH_DIR not set - Goose stream disabled, using mock mode');
+    console.log('[GooseOffice] Hint: copy .env.example to .env.local and fill in the path');
   }
   if (mobileGooseDir) {
-    console.log(`[GooseOffice] MOBILE_GOOSE_DIR = ${mobileGooseDir}`);
+    console.log('[GooseOffice] MOBILE_GOOSE_DIR = ' + mobileGooseDir);
   }
 
   return {
     plugins: [
+      tailwindcss(),
       react(),
       browserMockAssetsPlugin(),
       ...(gooseWatchDir ? [goosePlugin({ watchDir: gooseWatchDir, mobileGooseDir: mobileGooseDir || undefined })] : []),
