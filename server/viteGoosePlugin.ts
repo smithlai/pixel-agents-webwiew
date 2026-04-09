@@ -29,10 +29,10 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 // State file: <project-root>/.runtime/pixel-agents-browser-workspace-state.json
 const STATE_FILE = path.join(PROJECT_ROOT, '.runtime', 'pixel-agents-browser-workspace-state.json');
+// Tracked default office seed used when no runtime state exists yet.
+const DEFAULT_OFFICE_LAYOUT_FILE = path.join(PROJECT_ROOT, '.runtime', 'default-office-layout.json');
 // Legacy path (written by older dev sessions that ran from webview-ui/)
 const LEGACY_STATE_FILE = path.join(PROJECT_ROOT, 'webview-ui', '.runtime', 'pixel-agents-browser-workspace-state.json');
-// When layout is saved, also keep a copy as the default layout fallback
-const DEFAULT_LAYOUT_999 = path.join(PROJECT_ROOT, 'webview-ui', 'public', 'assets', 'default-layout-999.json');
 
 function readUiState(): Record<string, unknown> {
   // Primary path
@@ -54,6 +54,17 @@ function readUiState(): Record<string, unknown> {
       return {};
     }
   }
+
+  // Seed fallback (tracked): provide a real default office when no state exists yet.
+  if (fs.existsSync(DEFAULT_OFFICE_LAYOUT_FILE)) {
+    try {
+      const layout = JSON.parse(fs.readFileSync(DEFAULT_OFFICE_LAYOUT_FILE, 'utf8')) as unknown;
+      return { layout };
+    } catch {
+      return {};
+    }
+  }
+
   return {};
 }
 
@@ -61,15 +72,6 @@ function writeUiState(state: Record<string, unknown>): void {
   const dir = path.dirname(STATE_FILE);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
-
-  // Side-effect: keep default-layout-999.json in sync when layout changes
-  if (state.layout) {
-    try {
-      fs.writeFileSync(DEFAULT_LAYOUT_999, JSON.stringify(state.layout, null, 2), 'utf8');
-    } catch {
-      console.warn('[GoosePlugin] Failed to update default-layout-999.json');
-    }
-  }
 }
 
 export interface GoosePluginOptions {

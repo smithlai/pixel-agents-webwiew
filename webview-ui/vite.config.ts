@@ -79,7 +79,8 @@ function browserMockAssetsPlugin(): Plugin {
       // Hot-reload on asset file changes (PNGs, manifests, layouts)
       server.watcher.add(assetsDir);
       server.watcher.on('change', (file) => {
-        if (file.startsWith(assetsDir)) {
+        const changedFile = path.resolve(file);
+        if (changedFile.startsWith(assetsDir)) {
           console.log(`[browser-mock-assets] Asset changed: ${path.relative(assetsDir, file)}`);
           clearCache();
           server.ws.send({ type: 'full-reload' });

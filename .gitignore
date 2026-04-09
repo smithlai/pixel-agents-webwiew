@@ -38,5 +38,8 @@ playwright-report/
 /notes/
 
 # Browser-mode runtime state (generated, not versioned)
-.runtime/
 webview-ui/.runtime/
+
+# Browser-mode runtime state (generated, not versioned)
+.runtime/*
+!.runtime/default-office-layout.json

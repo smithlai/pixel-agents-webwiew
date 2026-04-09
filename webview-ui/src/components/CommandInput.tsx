@@ -11,7 +11,8 @@ interface CommandInputProps {
 
 const containerStyle: React.CSSProperties = {
   position: 'absolute',
-  bottom: 10,
+  // Keep the command box above the bottom-left toolbar to avoid overlap.
+  bottom: 58,
   left: '50%',
   transform: 'translateX(-50%)',
   zIndex: 'var(--pixel-controls-z)' as unknown as number,

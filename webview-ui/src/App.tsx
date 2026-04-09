@@ -382,6 +382,7 @@ function App() {
         isSettingsOpen={isSettingsOpen}
         onToggleSettings={() => setIsSettingsOpen((v) => !v)}
         workspaceFolders={workspaceFolders}
+        showAgentButton={!isBrowserRuntime}
       />
 
       <VersionIndicator

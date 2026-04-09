@@ -10,6 +10,7 @@ interface BottomToolbarProps {
   isSettingsOpen: boolean;
   onToggleSettings: () => void;
   workspaceFolders: WorkspaceFolder[];
+  showAgentButton?: boolean;
 }
 
 const panelStyle: React.CSSProperties = {
@@ -50,6 +51,7 @@ export function BottomToolbar({
   isSettingsOpen,
   onToggleSettings,
   workspaceFolders,
+  showAgentButton = true,
 }: BottomToolbarProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [isFolderPickerOpen, setIsFolderPickerOpen] = useState(false);
@@ -117,65 +119,67 @@ export function BottomToolbar({
       >
         ✕
       </button>
-      <div ref={folderPickerRef} style={{ position: 'relative' }}>
-        <button
-          onClick={handleAgentClick}
-          onMouseEnter={() => setHovered('agent')}
-          onMouseLeave={() => setHovered(null)}
-          style={{
-            ...btnBase,
-            padding: '5px 12px',
-            background:
-              hovered === 'agent' || isFolderPickerOpen
-                ? 'var(--color-agent-hover)'
-                : 'var(--color-agent-bg)',
-            border: '2px solid var(--color-agent-border)',
-            color: 'var(--color-agent-text)',
-          }}
-        >
-          + Agent
-        </button>
-        {isFolderPickerOpen && (
-          <div
+      {showAgentButton && (
+        <div ref={folderPickerRef} style={{ position: 'relative' }}>
+          <button
+            onClick={handleAgentClick}
+            onMouseEnter={() => setHovered('agent')}
+            onMouseLeave={() => setHovered(null)}
             style={{
-              position: 'absolute',
-              bottom: '100%',
-              left: 0,
-              marginBottom: 4,
-              background: 'var(--color-bg)',
-              border: '2px solid var(--color-border)',
-              borderRadius: 0,
-              boxShadow: 'var(--shadow-pixel)',
-              minWidth: 160,
-              zIndex: 'var(--pixel-controls-z)',
+              ...btnBase,
+              padding: '5px 12px',
+              background:
+                hovered === 'agent' || isFolderPickerOpen
+                  ? 'var(--color-agent-hover)'
+                  : 'var(--color-agent-bg)',
+              border: '2px solid var(--color-agent-border)',
+              color: 'var(--color-agent-text)',
             }}
           >
-            {workspaceFolders.map((folder, i) => (
-              <button
-                key={folder.path}
-                onClick={() => handleFolderSelect(folder)}
-                onMouseEnter={() => setHoveredFolder(i)}
-                onMouseLeave={() => setHoveredFolder(null)}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '6px 10px',
-                  fontSize: '22px',
-                  color: 'var(--color-text)',
-                  background: hoveredFolder === i ? 'var(--color-btn-hover)' : 'transparent',
-                  border: 'none',
-                  borderRadius: 0,
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {folder.name}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+            + Agent
+          </button>
+          {isFolderPickerOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '100%',
+                left: 0,
+                marginBottom: 4,
+                background: 'var(--color-bg)',
+                border: '2px solid var(--color-border)',
+                borderRadius: 0,
+                boxShadow: 'var(--shadow-pixel)',
+                minWidth: 160,
+                zIndex: 'var(--pixel-controls-z)',
+              }}
+            >
+              {workspaceFolders.map((folder, i) => (
+                <button
+                  key={folder.path}
+                  onClick={() => handleFolderSelect(folder)}
+                  onMouseEnter={() => setHoveredFolder(i)}
+                  onMouseLeave={() => setHoveredFolder(null)}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '6px 10px',
+                    fontSize: '22px',
+                    color: 'var(--color-text)',
+                    background: hoveredFolder === i ? 'var(--color-btn-hover)' : 'transparent',
+                    border: 'none',
+                    borderRadius: 0,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {folder.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <button
         onClick={onToggleEditMode}
         onMouseEnter={() => setHovered('edit')}
