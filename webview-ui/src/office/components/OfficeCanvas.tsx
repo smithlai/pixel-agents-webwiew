@@ -63,6 +63,10 @@ export function OfficeCanvas({
   // Middle-mouse pan state (imperative, no re-renders)
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ mouseX: 0, mouseY: 0, panX: 0, panY: 0 });
+  /** Left-click drag panning (non-edit mode) — tracks whether a drag has started */
+  const isLeftPanRef = useRef(false);
+  const suppressClickRef = useRef(false);
+  const LEFT_PAN_THRESHOLD = 4; // px before drag starts (avoids accidental pan on click)
   // Delete/rotate button bounds (updated each frame by renderer)
   const deleteButtonBoundsRef = useRef<DeleteButtonBounds | null>(null);
   const rotateButtonBoundsRef = useRef<RotateButtonBounds | null>(null);
@@ -346,13 +350,30 @@ export function OfficeCanvas({
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      // Handle middle-mouse panning
-      if (isPanningRef.current) {
+      // Handle middle-mouse or left-click panning
+      if (isPanningRef.current || isLeftPanRef.current) {
         const dpr = window.devicePixelRatio || 1;
         const dx = (e.clientX - panStartRef.current.mouseX) * dpr;
         const dy = (e.clientY - panStartRef.current.mouseY) * dpr;
         panRef.current = clampPan(panStartRef.current.panX + dx, panStartRef.current.panY + dy);
         return;
+      }
+
+      // Left-click drag threshold check (non-edit mode)
+      if (
+        !isEditMode &&
+        e.buttons === 1 &&
+        !isLeftPanRef.current
+      ) {
+        const dx = e.clientX - panStartRef.current.mouseX;
+        const dy = e.clientY - panStartRef.current.mouseY;
+        if (dx * dx + dy * dy > LEFT_PAN_THRESHOLD * LEFT_PAN_THRESHOLD) {
+          isLeftPanRef.current = true;
+          officeState.cameraFollowId = null;
+          const canvas = canvasRef.current;
+          if (canvas) canvas.style.cursor = 'grabbing';
+          return;
+        }
       }
 
       if (isEditMode) {
@@ -516,6 +537,18 @@ export function OfficeCanvas({
         return;
       }
 
+      // Left-click drag panning in non-edit mode
+      if (e.button === 0 && !isEditMode) {
+        isLeftPanRef.current = false; // will become true once threshold exceeded
+        panStartRef.current = {
+          mouseX: e.clientX,
+          mouseY: e.clientY,
+          panX: panRef.current.x,
+          panY: panRef.current.y,
+        };
+        // Don't return — let click handler fire if drag doesn't start
+      }
+
       // Right-click in edit mode for erasing
       if (e.button === 2 && isEditMode) {
         const tile = screenToTile(e.clientX, e.clientY);
@@ -618,6 +651,14 @@ export function OfficeCanvas({
         if (canvas) canvas.style.cursor = isEditMode ? 'crosshair' : 'default';
         return;
       }
+      if (e.button === 0 && isLeftPanRef.current) {
+        isLeftPanRef.current = false;
+        suppressClickRef.current = true; // suppress the click event that follows
+        const canvas = canvasRef.current;
+        if (canvas) canvas.style.cursor = 'default';
+        return;
+      }
+      isLeftPanRef.current = false; // reset even if threshold wasn't reached
       if (e.button === 2) {
         isEraseDraggingRef.current = false;
         return;
@@ -668,6 +709,10 @@ export function OfficeCanvas({
 
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return; // was left-drag panning, not a click
+      }
       if (isEditMode) return; // handled by mouseDown/mouseUp
       const pos = screenToWorld(e.clientX, e.clientY);
       if (!pos) return;
@@ -733,6 +778,7 @@ export function OfficeCanvas({
 
   const handleMouseLeave = useCallback(() => {
     isPanningRef.current = false;
+    isLeftPanRef.current = false;
     isEraseDraggingRef.current = false;
     editorState.isDragging = false;
     editorState.wallDragAdding = null;
@@ -759,32 +805,38 @@ export function OfficeCanvas({
   );
 
   // Wheel: Ctrl+wheel to zoom, plain wheel/trackpad to pan
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
-      if (e.ctrlKey || e.metaKey) {
-        // Accumulate scroll delta, step zoom when threshold crossed
-        zoomAccumulatorRef.current += e.deltaY;
-        if (Math.abs(zoomAccumulatorRef.current) >= ZOOM_SCROLL_THRESHOLD) {
-          const delta = zoomAccumulatorRef.current < 0 ? 1 : -1;
-          zoomAccumulatorRef.current = 0;
-          const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + delta));
-          if (newZoom !== zoom) {
-            onZoomChange(newZoom);
-          }
+  // Must use native addEventListener with { passive: false } to prevent Chrome's Ctrl+wheel zoom
+  const wheelHandlerRef = useRef<((e: WheelEvent) => void) | null>(null);
+  wheelHandlerRef.current = (e: WheelEvent) => {
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {
+      // Accumulate scroll delta, step zoom when threshold crossed
+      zoomAccumulatorRef.current += e.deltaY;
+      if (Math.abs(zoomAccumulatorRef.current) >= ZOOM_SCROLL_THRESHOLD) {
+        const delta = zoomAccumulatorRef.current < 0 ? 1 : -1;
+        zoomAccumulatorRef.current = 0;
+        const newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + delta));
+        if (newZoom !== zoom) {
+          onZoomChange(newZoom);
         }
-      } else {
-        // Pan via trackpad two-finger scroll or mouse wheel
-        const dpr = window.devicePixelRatio || 1;
-        officeState.cameraFollowId = null;
-        panRef.current = clampPan(
-          panRef.current.x - e.deltaX * dpr,
-          panRef.current.y - e.deltaY * dpr,
-        );
       }
-    },
-    [zoom, onZoomChange, officeState, panRef, clampPan],
-  );
+    } else {
+      // Pan via trackpad two-finger scroll or mouse wheel
+      const dpr = window.devicePixelRatio || 1;
+      officeState.cameraFollowId = null;
+      panRef.current = clampPan(
+        panRef.current.x - e.deltaX * dpr,
+        panRef.current.y - e.deltaY * dpr,
+      );
+    }
+  };
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const handler = (e: WheelEvent) => wheelHandlerRef.current?.(e);
+    canvas.addEventListener('wheel', handler, { passive: false });
+    return () => canvas.removeEventListener('wheel', handler);
+  }, []);
 
   // Prevent default middle-click browser behavior (auto-scroll)
   const handleAuxClick = useCallback((e: React.MouseEvent) => {
@@ -801,7 +853,6 @@ export function OfficeCanvas({
         onClick={handleClick}
         onAuxClick={handleAuxClick}
         onMouseLeave={handleMouseLeave}
-        onWheel={handleWheel}
         onContextMenu={handleContextMenu}
         className="block"
       />
