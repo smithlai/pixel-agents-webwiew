@@ -47,7 +47,7 @@ export const ROOM_NAMES: Record<RoomId, string> = {
 
 // ── Default profiles ─────────────────────────────────────────────────────────
 // Key = profile identifier, used by browserMock and eventTranslator to match agents.
-// Seat UIDs must match default-layout-2.json furniture UIDs.
+// Seat UIDs must match default-layout-999.json furniture UIDs.
 
 export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
   boss: {
@@ -132,7 +132,7 @@ export function getRoomDisplayName(profile: AgentProfile): string {
 
 // ── Dynamic Tester profiles (ADB devices) ────────────────────────────────────
 
-/** Seat pool for dynamically spawned device Testers (must match default-layout-2.json) */
+/** Seat pool for dynamically spawned device Testers (must match default-layout-999.json) */
 const DEVICE_TESTER_SEATS = [
   { workSeat: 'lab1-chair1', restSeat: 'lobby-sofa3', room: RoomId.TEST_LAB_1 },
   { workSeat: 'lab2-chair1', restSeat: 'lobby-sofa4', room: RoomId.TEST_LAB_2 },

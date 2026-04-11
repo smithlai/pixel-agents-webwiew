@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 
 import type { Plugin, ViteDevServer } from 'vite';
 
+import { findHighestDefaultLayout } from '../shared/assets/layoutDefaults.ts';
 import { AdbPoller } from './adbPoller.ts';
 import { DeviceManager } from './deviceManager.ts';
 import { EventTranslator } from './eventTranslator.ts';
@@ -29,8 +30,8 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 // State file: <project-root>/.runtime/pixel-agents-browser-workspace-state.json
 const STATE_FILE = path.join(PROJECT_ROOT, '.runtime', 'pixel-agents-browser-workspace-state.json');
-// Tracked default office seed used when no runtime state exists yet.
-const DEFAULT_OFFICE_LAYOUT_FILE = path.join(PROJECT_ROOT, '.runtime', 'default-office-layout.json');
+// Assets directory for default layout resolution
+const ASSETS_DIR = path.join(PROJECT_ROOT, 'webview-ui', 'public', 'assets');
 // Legacy path (written by older dev sessions that ran from webview-ui/)
 const LEGACY_STATE_FILE = path.join(PROJECT_ROOT, 'webview-ui', '.runtime', 'pixel-agents-browser-workspace-state.json');
 
@@ -55,10 +56,11 @@ function readUiState(): Record<string, unknown> {
     }
   }
 
-  // Seed fallback (tracked): provide a real default office when no state exists yet.
-  if (fs.existsSync(DEFAULT_OFFICE_LAYOUT_FILE)) {
+  // Seed fallback: scan assets/ for highest-revision default layout.
+  const found = findHighestDefaultLayout(ASSETS_DIR);
+  if (found) {
     try {
-      const layout = JSON.parse(fs.readFileSync(DEFAULT_OFFICE_LAYOUT_FILE, 'utf8')) as unknown;
+      const layout = JSON.parse(fs.readFileSync(found.path, 'utf8')) as unknown;
       return { layout };
     } catch {
       return {};
