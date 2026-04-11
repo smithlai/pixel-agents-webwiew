@@ -27,6 +27,8 @@ import {
   PATH_OVERLAY_COLOR,
   PATH_OVERLAY_DASH,
   PATH_OVERLAY_DOT_RADIUS_PX,
+  REFLECTION_ALPHA,
+  REFLECTION_GAP_PX,
   ROTATE_BUTTON_BG,
   SEAT_AVAILABLE_COLOR,
   SEAT_BUSY_COLOR,
@@ -214,6 +216,107 @@ export function renderScene(
   for (const d of drawables) {
     d.draw(ctx);
   }
+}
+
+// ── Reflections ─────────────────────────────────────────────────
+
+/**
+ * Build a Set of "col,row" keys for tiles marked as reflective.
+ * @internal
+ */
+function buildReflectiveTileSet(
+  tileColors: Array<ColorValue | null> | undefined,
+  cols: number,
+  rows: number,
+): Set<string> | null {
+  if (!tileColors) return null;
+  const set = new Set<string>();
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const color = tileColors[r * cols + c];
+      if (color?.reflective) set.add(`${c},${r}`);
+    }
+  }
+  return set.size > 0 ? set : null;
+}
+
+/**
+ * Render vertically-flipped, squished reflections of furniture and
+ * characters onto reflective floor tiles. Clipped to reflective tiles.
+ * @internal
+ */
+function renderReflections(
+  ctx: CanvasRenderingContext2D,
+  reflectiveTiles: Set<string>,
+  furniture: FurnitureInstance[],
+  characters: Character[],
+  offsetX: number,
+  offsetY: number,
+  zoom: number,
+  _cols: number,
+  _rows: number,
+): void {
+  const s = TILE_SIZE * zoom;
+
+  // Clip to reflective tiles
+  ctx.save();
+  ctx.beginPath();
+  for (const key of reflectiveTiles) {
+    const [cStr, rStr] = key.split(',');
+    const c = parseInt(cStr!, 10);
+    const r = parseInt(rStr!, 10);
+    ctx.rect(offsetX + c * s, offsetY + r * s, s, s);
+  }
+  ctx.clip();
+
+  ctx.globalAlpha = REFLECTION_ALPHA;
+
+  const gapPx = REFLECTION_GAP_PX * zoom;
+
+  // Reflect furniture — flip around sprite bottom edge
+  for (const f of furniture) {
+    const cached = getCachedSprite(f.sprite, zoom);
+    const fx = offsetX + f.x * zoom;
+    const fy = offsetY + f.y * zoom;
+    const fh = cached.height;
+    const mirrorY = fy + fh + gapPx;
+
+    ctx.save();
+    ctx.translate(0, 2 * mirrorY);
+    ctx.scale(1, -1);
+
+    if (f.mirrored) {
+      ctx.save();
+      ctx.translate(fx + cached.width, fy);
+      ctx.scale(-1, 1);
+      ctx.drawImage(cached, 0, 0);
+      ctx.restore();
+    } else {
+      ctx.drawImage(cached, fx, fy);
+    }
+    ctx.restore();
+  }
+
+  // Reflect characters — flip around feet
+  for (const char of characters) {
+    if (char.matrixEffect) continue;
+
+    const sprites = getCharacterSprites(char.palette, char.hueShift);
+    const spriteData = getCharacterSprite(char, sprites);
+    const cached = getCachedSprite(spriteData, zoom);
+    const sittingOffset = char.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
+    const drawX = Math.round(offsetX + char.x * zoom - cached.width / 2);
+    const drawY = Math.round(offsetY + (char.y + sittingOffset) * zoom - cached.height);
+    const mirrorY = drawY + cached.height + gapPx;
+
+    ctx.save();
+    ctx.translate(0, 2 * mirrorY);
+    ctx.scale(1, -1);
+    ctx.drawImage(cached, drawX, drawY);
+    ctx.restore();
+  }
+
+  ctx.restore(); // restore clip + alpha
 }
 
 // ── Seat indicators ─────────────────────────────────────────────
@@ -667,6 +770,22 @@ export function renderFrame(
   // Build wall instances for z-sorting with furniture and characters
   const wallInstances = hasWallSprites() ? getWallInstances(tileMap, tileColors, layoutCols) : [];
   const allFurniture = wallInstances.length > 0 ? [...wallInstances, ...furniture] : furniture;
+
+  // Reflections (below scene, on top of floor)
+  const reflectiveTiles = buildReflectiveTileSet(tileColors, cols, rows);
+  if (reflectiveTiles) {
+    renderReflections(
+      ctx,
+      reflectiveTiles,
+      allFurniture,
+      characters,
+      offsetX,
+      offsetY,
+      zoom,
+      cols,
+      rows,
+    );
+  }
 
   // Draw walls + furniture + characters (z-sorted)
   const selectedId = selection?.selectedAgentId ?? null;

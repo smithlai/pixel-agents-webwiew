@@ -10,4 +10,6 @@ export interface ColorValue {
   c: number;
   /** When true, use Photoshop-style Colorize (grayscale → fixed HSL). Default: adjust mode. */
   colorize?: boolean;
+  /** When true, this floor tile renders reflections of furniture and characters above it. */
+  reflective?: boolean;
 }

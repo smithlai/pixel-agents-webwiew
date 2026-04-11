@@ -34,7 +34,8 @@ export function paintTile(
       newColor.s === existingColor.s &&
       newColor.b === existingColor.b &&
       newColor.c === existingColor.c &&
-      !!newColor.colorize === !!existingColor.colorize
+      !!newColor.colorize === !!existingColor.colorize &&
+      !!newColor.reflective === !!existingColor.reflective
     )
       return layout;
   }

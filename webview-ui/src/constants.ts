@@ -74,6 +74,12 @@ export const CANVAS_FALLBACK_TILE_COLOR = '#444';
 export const CANVAS_ERROR_TILE_COLOR = '#FF00FF';
 export const WALL_COLOR = '#3A3A5C';
 
+// ── Reflection ──────────────────────────────────────────────
+/** Base alpha for reflected sprites (0 = invisible, 1 = fully opaque) */
+export const REFLECTION_ALPHA = 0.22;
+/** Vertical gap in sprite-pixels between entity bottom and reflection top */
+export const REFLECTION_GAP_PX = 0;
+
 // ── Camera ───────────────────────────────────────────────────
 export const CAMERA_FOLLOW_LERP = 0.1;
 export const CAMERA_FOLLOW_SNAP_THRESHOLD = 0.5;

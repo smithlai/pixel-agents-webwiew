@@ -147,7 +147,7 @@ export function EditorToolbar({
       {/* Sub-panel: Floor tiles — stacked bottom-to-top via column-reverse */}
       {isFloorActive && (
         <div className="flex flex-col-reverse gap-4">
-          {/* Color toggle + Pick — just above tool row */}
+          {/* Color toggle + Pick + Reflective — just above tool row */}
           <div className="flex gap-4 items-center">
             <Button
               variant={showColor ? 'active' : 'default'}
@@ -164,6 +164,14 @@ export function EditorToolbar({
               title="Pick floor pattern + color from existing tile"
             >
               Pick
+            </Button>
+            <Button
+              variant={floorColor.reflective ? 'active' : 'ghost'}
+              size="sm"
+              onClick={() => onFloorColorChange({ ...floorColor, reflective: !floorColor.reflective })}
+              title="Toggle reflective floor (mirrors furniture and characters)"
+            >
+              Reflect
             </Button>
           </div>
 
