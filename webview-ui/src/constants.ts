@@ -76,7 +76,7 @@ export const WALL_COLOR = '#3A3A5C';
 
 // ── Reflection ──────────────────────────────────────────────
 /** Base alpha for reflected sprites (0 = invisible, 1 = fully opaque) */
-export const REFLECTION_ALPHA = 0.22;
+export const REFLECTION_ALPHA = 0.35;
 /** Vertical gap in sprite-pixels between entity bottom and reflection top */
 export const REFLECTION_GAP_PX = 0;
 

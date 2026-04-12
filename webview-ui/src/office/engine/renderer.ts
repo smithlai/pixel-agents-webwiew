@@ -240,9 +240,31 @@ function buildReflectiveTileSet(
   return set.size > 0 ? set : null;
 }
 
+/** Lazy-initialized offscreen canvas for reflection compositing */
+let _reflCanvas: HTMLCanvasElement | null = null;
+let _reflCtx: CanvasRenderingContext2D | null = null;
+
+function getReflCtx(w: number, h: number): CanvasRenderingContext2D {
+  if (!_reflCanvas) {
+    _reflCanvas = document.createElement('canvas');
+  }
+  if (_reflCanvas.width !== w || _reflCanvas.height !== h) {
+    _reflCanvas.width = w;
+    _reflCanvas.height = h;
+    _reflCtx = _reflCanvas.getContext('2d')!;
+  }
+  _reflCtx!.clearRect(0, 0, w, h);
+  return _reflCtx!;
+}
+
 /**
- * Render vertically-flipped, squished reflections of furniture and
- * characters onto reflective floor tiles. Clipped to reflective tiles.
+ * Render vertically-flipped reflections of furniture and characters
+ * onto reflective floor tiles, with gradient fade within one tile height.
+ *
+ * Pipeline:
+ * 1. Draw flipped reflections onto offscreen canvas (same coords as main)
+ * 2. Erase with per-tile vertical gradient (destination-out) for fade-out
+ * 3. Composite offscreen → main canvas, clipped to reflective tiles
  * @internal
  */
 function renderReflections(
@@ -257,47 +279,57 @@ function renderReflections(
   _rows: number,
 ): void {
   const s = TILE_SIZE * zoom;
+  const cw = ctx.canvas.width;
+  const canvasH = ctx.canvas.height;
 
-  // Clip to reflective tiles
-  ctx.save();
-  ctx.beginPath();
+  // ── 1. Draw reflections onto offscreen canvas ──
+  const off = getReflCtx(cw, canvasH);
+
+  // Clip offscreen to reflective tiles too (avoid drawing outside)
+  off.save();
+  off.beginPath();
   for (const key of reflectiveTiles) {
     const [cStr, rStr] = key.split(',');
     const c = parseInt(cStr!, 10);
     const r = parseInt(rStr!, 10);
-    ctx.rect(offsetX + c * s, offsetY + r * s, s, s);
+    off.rect(offsetX + c * s, offsetY + r * s, s, s);
   }
-  ctx.clip();
+  off.clip();
 
-  ctx.globalAlpha = REFLECTION_ALPHA;
+  off.globalAlpha = REFLECTION_ALPHA;
 
   const gapPx = REFLECTION_GAP_PX * zoom;
 
-  // Reflect furniture — flip around sprite bottom edge
+  // Reflect furniture — flip around sprite bottom edge, limited to 1 tile height
   for (const f of furniture) {
     const cached = getCachedSprite(f.sprite, zoom);
     const fx = offsetX + f.x * zoom;
     const fy = offsetY + f.y * zoom;
     const fh = cached.height;
+    const fw = cached.width;
     const mirrorY = fy + fh + gapPx;
 
-    ctx.save();
-    ctx.translate(0, 2 * mirrorY);
-    ctx.scale(1, -1);
+    off.save();
+    // Clip reflection to 1 tile height below mirror axis
+    off.beginPath();
+    off.rect(fx, mirrorY, fw, s);
+    off.clip();
+    off.translate(0, 2 * mirrorY);
+    off.scale(1, -1);
 
     if (f.mirrored) {
-      ctx.save();
-      ctx.translate(fx + cached.width, fy);
-      ctx.scale(-1, 1);
-      ctx.drawImage(cached, 0, 0);
-      ctx.restore();
+      off.save();
+      off.translate(fx + fw, fy);
+      off.scale(-1, 1);
+      off.drawImage(cached, 0, 0);
+      off.restore();
     } else {
-      ctx.drawImage(cached, fx, fy);
+      off.drawImage(cached, fx, fy);
     }
-    ctx.restore();
+    off.restore();
   }
 
-  // Reflect characters — flip around feet
+  // Reflect characters — flip around feet, limited to 1 tile height
   for (const char of characters) {
     if (char.matrixEffect) continue;
 
@@ -309,14 +341,50 @@ function renderReflections(
     const drawY = Math.round(offsetY + (char.y + sittingOffset) * zoom - cached.height);
     const mirrorY = drawY + cached.height + gapPx;
 
-    ctx.save();
-    ctx.translate(0, 2 * mirrorY);
-    ctx.scale(1, -1);
-    ctx.drawImage(cached, drawX, drawY);
-    ctx.restore();
+    off.save();
+    // Clip reflection to 1 tile height below mirror axis
+    off.beginPath();
+    off.rect(drawX, mirrorY, cached.width, s);
+    off.clip();
+    off.translate(0, 2 * mirrorY);
+    off.scale(1, -1);
+    off.drawImage(cached, drawX, drawY);
+    off.restore();
   }
 
-  ctx.restore(); // restore clip + alpha
+  off.restore(); // restore clip + alpha
+
+  // ── 2. Gradient fade per reflective tile ──
+  off.save();
+  off.globalCompositeOperation = 'destination-out';
+  for (const key of reflectiveTiles) {
+    const [cStr, rStr] = key.split(',');
+    const c = parseInt(cStr!, 10);
+    const r = parseInt(rStr!, 10);
+    const tx = offsetX + c * s;
+    const ty = offsetY + r * s;
+
+    // Fade from fully visible at top to fully erased at bottom
+    const grad = off.createLinearGradient(tx, ty, tx, ty + s);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,1)');
+    off.fillStyle = grad;
+    off.fillRect(tx, ty, s, s);
+  }
+  off.restore();
+
+  // ── 3. Composite onto main canvas, clipped to reflective tiles ──
+  ctx.save();
+  ctx.beginPath();
+  for (const key of reflectiveTiles) {
+    const [cStr, rStr] = key.split(',');
+    const c = parseInt(cStr!, 10);
+    const r = parseInt(rStr!, 10);
+    ctx.rect(offsetX + c * s, offsetY + r * s, s, s);
+  }
+  ctx.clip();
+  ctx.drawImage(_reflCanvas!, 0, 0);
+  ctx.restore();
 }
 
 // ── Seat indicators ─────────────────────────────────────────────
