@@ -76,13 +76,14 @@ export const WALL_COLOR = '#3A3A5C';
 
 // ── Reflection ──────────────────────────────────────────────
 /** Base alpha for reflected sprites (0 = invisible, 1 = fully opaque) */
-export const REFLECTION_ALPHA = 0.35;
+export const REFLECTION_ALPHA = 0.5;
 /** Vertical gap in sprite-pixels between entity bottom and reflection top */
 export const REFLECTION_GAP_PX = 0;
 
 // ── Lighting ────────────────────────────────────────────────
-/** Ambient darkness overlay alpha (0 = full daylight, 1 = pitch black). */
-export const AMBIENT_DARK_ALPHA = 0.35;
+/** Ambient darkness overlay alpha (0 = full daylight, 1 = pitch black).
+ *  Bloom 模式：保持很低的整體壓暗，讓光源只做「發光物件的光溢出」而不改變場景主色。 */
+export const AMBIENT_DARK_ALPHA = 0.12;
 /** Default light radius in tiles when a source doesn't specify one. */
 export const LIGHT_DEFAULT_RADIUS_TILES = 3;
 /** Default warm light color (center of radial gradient). */
