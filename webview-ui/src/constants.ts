@@ -87,8 +87,9 @@ export const AMBIENT_DARK_ALPHA = 0.35;
 export const LIGHT_DEFAULT_RADIUS_TILES = 3;
 /** Default warm light color (center of radial gradient). */
 export const LIGHT_DEFAULT_COLOR = 'rgba(255, 220, 140, 1)';
-/** Default vertical offset from footprint top-left, in sprite pixels. */
-export const LIGHT_DEFAULT_OFFSET_Y_PX = -8;
+/** Default vertical offset from sprite top-left, in sprite pixels. Negative = above top, positive = downward.
+ *  Fallback places the light at ~70% of sprite height (near base) so lamps/objects glow outward from the footprint. */
+export const LIGHT_DEFAULT_OFFSET_RATIO = 0.7;
 
 // ── Camera ───────────────────────────────────────────────────
 export const CAMERA_FOLLOW_LERP = 0.1;
