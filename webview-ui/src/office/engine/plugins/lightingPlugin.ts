@@ -11,37 +11,10 @@ import type { RenderContext, RenderPlugin } from './types.js';
 
 /**
  * Temporary demo-source overrides, keyed by catalog asset id prefix.
- * Applied until the asset manifest gains a native `light` field (editable in asset-manager.html).
+ * Applied until the asset manifest gains a native `light` field.
  * Remove entries here as manifests are updated.
  *
- * TODO: 製造光源素材 & 設定方式
- * ─────────────────────────────────────────────────────────────────────
- * 目前專案還缺「永久光源」類素材（檯燈 / 吊燈 / 蠟燭 / 路燈 / 火把 etc.）。
- * 要為任一家具加上光源，選擇下列兩條路其中之一：
- *
- * (A) 短期 — 在本檔案 DEMO_LIGHT_OVERRIDES 新增一筆
- *     適合快速試作、或尚未正式進 manifest 的素材。
- *     範例：
- *       { match: (id) => id === 'DESK_LAMP_ON',
- *         light: { radius: 3, color: 'rgba(255, 240, 200, 1)', intensity: 1 } }
- *
- * (B) 長期 — 在 scripts/asset-manager.html 幫素材編輯 light 欄位
- *     寫進該素材的 manifest.json 的 light 欄位，例如：
- *       "light": { "radius": 2.5, "color": "rgba(255,220,140,1)", "intensity": 0.8 }
- *     shared/assets/manifestUtils.ts 會透傳到 LoadedAssetData.catalog[].light，
- *     furnitureCatalog.ts 已在讀取，直接生效。光源屬性說明：
- *
- *     ┌──────────┬─────────────────────────────────────────────┐
- *     │ radius   │ 光圈半徑（tiles）。建議 2~4 格，太大會讓整張地圖亮    │
- *     │ color    │ 光色 rgba 字串。偏暖 'rgba(255,220,140,1)'、冷 │
- *     │          │ 冷白 'rgba(200,230,255,1)'、燭火 'rgba(255,150,80,1)' │
- *     │ intensity│ 亮度 0~1，等於光圈中心的挖亮程度與暖色暈強度        │
- *     │ offsetX  │ (選) 水平位移 px，從家具左上角起算，預設 sprite 中央 │
- *     │ offsetY  │ (選) 垂直位移 px，預設 sprite 高度 × 0.7（下半身）   │
- *     └──────────┴─────────────────────────────────────────────┘
- *
- *     ON/OFF 家具（state='on'|'off' 成對）只有 ON 變體發光，自動與 agent
- *     的 auto-on 邏輯連動；獨立家具（無 state）永遠發光。
+ * 要新增光源素材 / 為家具指定光源屬性 → 見 docs/owner-todo.md §1 美術素材
  */
 const DEMO_LIGHT_OVERRIDES: Array<{ match: (id: string) => boolean; light: LightSource }> = [
   {
