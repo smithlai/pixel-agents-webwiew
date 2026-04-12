@@ -1,4 +1,4 @@
-import type { FurnitureCatalogEntry, SpriteData } from '../types.js';
+import type { FurnitureCatalogEntry, LightSource, SpriteData } from '../types.js';
 
 export interface LoadedAssetData {
   catalog: Array<{
@@ -20,6 +20,7 @@ export interface LoadedAssetData {
     rotationScheme?: string;
     animationGroup?: string;
     frame?: number;
+    light?: LightSource;
   }>;
   sprites: Record<string, SpriteData>;
 }
@@ -98,6 +99,8 @@ export function buildDynamicCatalog(assets: LoadedAssetData): boolean {
         ...(asset.backgroundTiles ? { backgroundTiles: asset.backgroundTiles } : {}),
         ...(asset.canPlaceOnWalls ? { canPlaceOnWalls: true } : {}),
         ...(asset.mirrorSide ? { mirrorSide: true } : {}),
+        ...(asset.state ? { state: asset.state } : {}),
+        ...(asset.light ? { light: asset.light } : {}),
       };
     })
     .filter((e): e is CatalogEntryWithCategory => e !== null);

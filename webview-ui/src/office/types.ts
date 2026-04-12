@@ -68,6 +68,25 @@ export interface FurnitureInstance {
   zY: number;
   /** Render-time horizontal flip flag (for mirrored side variants) */
   mirrored?: boolean;
+  /** Catalog type ID (asset ID). Used by plugins to look up catalog metadata. */
+  type?: string;
+}
+
+/**
+ * Light source definition for furniture. Positioned relative to the sprite top-left.
+ * Used by the lighting render plugin.
+ */
+export interface LightSource {
+  /** Radius in tiles. Fades to transparent at the edge. */
+  radius: number;
+  /** Core color (rgba string). Alpha is multiplied by intensity. */
+  color: string;
+  /** 0..1 strength multiplier. Default 1. */
+  intensity?: number;
+  /** Horizontal offset in sprite pixels from footprint top-left. Default = sprite center. */
+  offsetX?: number;
+  /** Vertical offset in sprite pixels from footprint top-left. Default = half sprite height. */
+  offsetY?: number;
 }
 
 export interface ToolActivity {
@@ -106,6 +125,10 @@ export interface FurnitureCatalogEntry {
   canPlaceOnWalls?: boolean;
   /** Whether this is a side-oriented asset that produces a mirrored "left" variant */
   mirrorSide?: boolean;
+  /** State variant: 'on' | 'off' | undefined. Used by lighting plugin to gate emission. */
+  state?: string;
+  /** Optional light source emitted by this furniture when active (ON state). */
+  light?: LightSource;
 }
 
 export interface PlacedFurniture {

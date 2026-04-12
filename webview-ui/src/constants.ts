@@ -80,6 +80,16 @@ export const REFLECTION_ALPHA = 0.35;
 /** Vertical gap in sprite-pixels between entity bottom and reflection top */
 export const REFLECTION_GAP_PX = 0;
 
+// ── Lighting ────────────────────────────────────────────────
+/** Ambient darkness overlay alpha (0 = full daylight, 1 = pitch black). */
+export const AMBIENT_DARK_ALPHA = 0.35;
+/** Default light radius in tiles when a source doesn't specify one. */
+export const LIGHT_DEFAULT_RADIUS_TILES = 3;
+/** Default warm light color (center of radial gradient). */
+export const LIGHT_DEFAULT_COLOR = 'rgba(255, 220, 140, 1)';
+/** Default vertical offset from footprint top-left, in sprite pixels. */
+export const LIGHT_DEFAULT_OFFSET_Y_PX = -8;
+
 // ── Camera ───────────────────────────────────────────────────
 export const CAMERA_FOLLOW_LERP = 0.1;
 export const CAMERA_FOLLOW_SNAP_THRESHOLD = 0.5;
