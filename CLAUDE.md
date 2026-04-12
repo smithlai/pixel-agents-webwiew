@@ -30,6 +30,12 @@ WebSocket 自動連接 Goose 事件串流（`gooseSocket.ts`），fallback 到 m
 - **空間行為系統**：擴展 FSM，實作事件觸發動線（接任務→匯報→工作→回報→休息）
 - **光柱 Spawn 特效**：搭配 matrixEffect.ts 擴展，用於 sub-agent spawn
 - **UI 完整中文化**：編輯器工具欄、設定面板等仍為英文
+- **光源系統 L4 牆壁擋光**：推薦方案丙 tile-based BFS — 從光源 tile 往外擴散，遇 WALL 停止，記錄 per-tile 距離；lightingPlugin 渲染時以此建立可見性遮罩
+- **光源系統 L5 環境光 / 日夜循環**：`AMBIENT_DARK_ALPHA` 改為時間軸動態值或 UI 可調滑桿（含色溫過渡）
+- **光源系統 L6 角色感應光**：螢幕 ON 時投射光到前方工作 agent 的臉（on top of character，`lighter` blend 小範圍加色）
+- **陰影 / 家具投影**：家具下方畫深色半透明橢圓影子；反光地板需跳過陰影（討論擱置方案甲）
+- **龍門吊素材與動畫**：特大家具 + ON/OFF 橫移動畫 + `backgroundTiles`；素材需求見 docs/owner-todo.md §1.2
+- **Colorize 模式統一**：地板 / 牆壁尊重 `color.colorize` 欄位（早期 revert 過，待重新討論設計）
 
 ## GooseOffice 新增架構
 
