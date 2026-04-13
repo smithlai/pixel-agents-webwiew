@@ -12,10 +12,10 @@ export type GooseEvent =
   | ToolStartEvent
   | ToolArgsEvent
   | ToolEndEvent
-  | DroidclawStartEvent
-  | DroidclawStepEvent
-  | DroidclawDoneEvent
-  | DroidclawLogEvent
+  | DroidrunPlanEvent
+  | DroidrunActionEvent
+  | DroidrunResultEvent
+  | DroidrunLogEvent
   | SessionEndEvent;
 
 export interface SessionStartEvent {
@@ -51,15 +51,15 @@ export interface ToolEndEvent {
   result?: { exitCode?: number; summary?: string };
 }
 
-export interface DroidclawStartEvent {
-  type: 'droidclaw_start';
+export interface DroidrunPlanEvent {
+  type: 'droidrun_plan';
   ts: string;
   parentToolId: string;
   goal: string;
 }
 
-export interface DroidclawStepEvent {
-  type: 'droidclaw_step';
+export interface DroidrunActionEvent {
+  type: 'droidrun_action';
   ts: string;
   parentToolId: string;
   step: number;
@@ -68,8 +68,8 @@ export interface DroidclawStepEvent {
   decision: string;
 }
 
-export interface DroidclawDoneEvent {
-  type: 'droidclaw_done';
+export interface DroidrunResultEvent {
+  type: 'droidrun_result';
   ts: string;
   parentToolId: string;
   success: boolean;
@@ -77,8 +77,8 @@ export interface DroidclawDoneEvent {
   totalSteps: number;
 }
 
-export interface DroidclawLogEvent {
-  type: 'droidclaw_log';
+export interface DroidrunLogEvent {
+  type: 'droidrun_log';
   ts: string;
   path: string;
 }

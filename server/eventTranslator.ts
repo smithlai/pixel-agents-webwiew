@@ -6,9 +6,9 @@
  *   tool_start       → agentToolStart     (Goose sits down, typing/reading)
  *   tool_args        → agentToolStart     (update status text with args)
  *   tool_end         → agentToolDone      (animation switch)
- *   droidclaw_start  → agentToolStart     (with "Subtask:" prefix → spawns sub-agent)
- *   droidclaw_step   → subagentToolStart  (sub-agent status text update)
- *   droidclaw_done   → subagentClear      (sub-agent disappears)
+ *   droidrun_plan    → agentToolStart     (with "Subtask:" prefix → spawns sub-agent)
+ *   droidrun_action  → subagentToolStart  (sub-agent status text update)
+ *   droidrun_result  → subagentClear      (sub-agent disappears)
  *   session_end      → agentStatus: idle  (Goose stands up, wanders)
  */
 
@@ -21,7 +21,7 @@ export interface WebviewMessage {
 }
 
 /**
- * Stateful translator that tracks active tools and DroidClaw sub-tasks
+ * Stateful translator that tracks active tools and DroidRun sub-tasks
  * for a single Goose agent.
  */
 export class EventTranslator {
@@ -30,8 +30,8 @@ export class EventTranslator {
   /** Maps GooseEvent toolId → webview toolId (we reuse as-is) */
   private activeTools = new Set<string>();
 
-  /** Maps parentToolId → droidclaw subtask tracking */
-  private activeDroidclaws = new Map<string, { goal: string; stepCount: number }>();
+  /** Maps parentToolId → DroidRun subtask tracking */
+  private activeDroidruns = new Map<string, { goal: string; stepCount: number }>();
 
   /** Accumulated tool_args for current tool (toolId → status text) */
   private toolStatusText = new Map<string, string>();
@@ -103,8 +103,8 @@ export class EventTranslator {
         break;
       }
 
-      case 'droidclaw_start': {
-        this.activeDroidclaws.set(event.parentToolId, {
+      case 'droidrun_plan': {
+        this.activeDroidruns.set(event.parentToolId, {
           goal: event.goal,
           stepCount: 0,
         });
@@ -112,46 +112,46 @@ export class EventTranslator {
         messages.push({
           type: 'agentToolStart',
           id: this.agentId,
-          toolId: `dc-${event.parentToolId}`,
-          status: `Subtask: DroidClaw — ${event.goal}`,
+          toolId: `dr-${event.parentToolId}`,
+          status: `Subtask: DroidRun — ${event.goal}`,
         });
         break;
       }
 
-      case 'droidclaw_step': {
-        const dc = this.activeDroidclaws.get(event.parentToolId);
-        if (dc) dc.stepCount = event.step;
+      case 'droidrun_action': {
+        const dr = this.activeDroidruns.get(event.parentToolId);
+        if (dr) dr.stepCount = event.step;
 
         // Update sub-agent status text
         const stepStatus = `Step ${event.step}/${event.maxSteps}: ${truncate(event.decision, 100)}`;
         messages.push({
           type: 'subagentToolDone',
           id: this.agentId,
-          parentToolId: `dc-${event.parentToolId}`,
-          toolId: `dc-step-${event.parentToolId}-${event.step - 1}`,
+          parentToolId: `dr-${event.parentToolId}`,
+          toolId: `dr-action-${event.parentToolId}-${event.step - 1}`,
         });
         messages.push({
           type: 'subagentToolStart',
           id: this.agentId,
-          parentToolId: `dc-${event.parentToolId}`,
-          toolId: `dc-step-${event.parentToolId}-${event.step}`,
+          parentToolId: `dr-${event.parentToolId}`,
+          toolId: `dr-action-${event.parentToolId}-${event.step}`,
           status: stepStatus,
         });
         break;
       }
 
-      case 'droidclaw_done': {
-        this.activeDroidclaws.delete(event.parentToolId);
+      case 'droidrun_result': {
+        this.activeDroidruns.delete(event.parentToolId);
         // Clear sub-agent
         messages.push({
           type: 'subagentClear',
           id: this.agentId,
-          parentToolId: `dc-${event.parentToolId}`,
+          parentToolId: `dr-${event.parentToolId}`,
         });
         break;
       }
 
-      case 'droidclaw_log':
+      case 'droidrun_log':
         // Informational only, no webview action needed
         break;
 
@@ -163,7 +163,7 @@ export class EventTranslator {
         );
         this.activeTools.clear();
         this.toolStatusText.clear();
-        this.activeDroidclaws.clear();
+        this.activeDroidruns.clear();
         break;
       }
     }
@@ -175,7 +175,7 @@ export class EventTranslator {
   reset(): void {
     this.activeTools.clear();
     this.toolStatusText.clear();
-    this.activeDroidclaws.clear();
+    this.activeDroidruns.clear();
   }
 
   private buildToolStatus(toolName: string, extension: string): string {

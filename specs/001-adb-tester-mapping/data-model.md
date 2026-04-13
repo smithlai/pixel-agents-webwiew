@@ -113,7 +113,7 @@ Boss ──(下令)──→ DeviceAgent ──(1:1)──→ AdbDevice
                       │                 │
                       │                 └──(產生)──→ JSONL File
                       │
-                      └──(spawn)──→ SubAgent (DroidClaw)
+                      └──(spawn)──→ SubAgent (DroidRun)
 ```
 
 ## State Machine: DeviceAgent

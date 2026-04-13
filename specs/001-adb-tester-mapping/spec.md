@@ -69,17 +69,17 @@
 
 ### User Story 4 - 子工具 Spawn 附屬角色 (Priority: P2)
 
-當 Goose 在測試過程中呼叫外部工具（例如 DroidClaw / DroidRun），系統為該工具 spawn 一個附屬角色（使用 matrix rain 特效進場）。附屬角色的狀態顯示在其「上級」Tester 的狀態下方，形成階層結構。工具完成後附屬角色以 despawn 特效消失。
+當 Goose 在測試過程中呼叫外部工具（例如 DroidRun），系統為該工具 spawn 一個附屬角色（使用 matrix rain 特效進場）。附屬角色的狀態顯示在其「上級」Tester 的狀態下方，形成階層結構。工具完成後附屬角色以 despawn 特效消失。
 
 **Why this priority**: 子工具視覺化增強了整體可觀察性，但核心功能不依賴它。
 
-**Independent Test**: 讓 Tester 執行一個會觸發 DroidClaw 的任務，確認附屬角色出現並在工具完成後消失。
+**Independent Test**: 讓 Tester 執行一個會觸發 DroidRun 的任務，確認附屬角色出現並在工具完成後消失。
 
 **Acceptance Scenarios**:
 
-1. **Given** Tester 正在執行任務, **When** Goose 呼叫 DroidClaw 工具, **Then** 一個附屬角色以 matrix rain 特效在 Tester 附近的空位 spawn，狀態面板顯示層級關係
-2. **Given** 附屬角色正在執行中, **When** DroidClaw 回報步驟進度, **Then** 附屬角色的狀態文字即時更新（例如「Step 2/50: 開啟設定」）
-3. **Given** 附屬角色正在執行中, **When** DroidClaw 完成, **Then** 附屬角色以 despawn 特效消失，Tester 的狀態更新為下一步
+1. **Given** Tester 正在執行任務, **When** Goose 呼叫 DroidRun 工具, **Then** 一個附屬角色以 matrix rain 特效在 Tester 附近的空位 spawn，狀態面板顯示層級關係
+2. **Given** 附屬角色正在執行中, **When** DroidRun 回報步驟進度, **Then** 附屬角色的狀態文字即時更新（例如「Step 2/50: 開啟設定」）
+3. **Given** 附屬角色正在執行中, **When** DroidRun 完成, **Then** 附屬角色以 despawn 特效消失，Tester 的狀態更新為下一步
 4. **Given** 使用者透過 Tester 的停止按鈕中止任務, **When** 該 Tester 有附屬角色, **Then** 附屬角色也一併 despawn
 
 ---
@@ -138,7 +138,7 @@
 - **FR-007**: 正在工作的 Tester MUST 在狀態面板上顯示即時工具呼叫狀態（透過 Goose JSONL WebSocket 事件流）
 - **FR-008**: 正在工作的 Tester MUST 在狀態面板上顯示一個停止按鈕，點擊後終止對應的 MobileGoose 進程
 - **FR-009**: 停止按鈕觸發後，Tester MUST 回到待命狀態，可再被分配新任務
-- **FR-010**: 當 Goose 呼叫外部子工具（如 DroidClaw）時，系統 MUST 在該 Tester 附近 spawn 一個附屬角色
+- **FR-010**: 當 Goose 呼叫外部子工具（如 DroidRun）時，系統 MUST 在該 Tester 附近 spawn 一個附屬角色
 - **FR-011**: 附屬角色 MUST 顯示子工具的即時步驟進度
 - **FR-012**: 子工具完成時，附屬角色 MUST 以 despawn 特效消失
 - **FR-013**: 當使用者停止 Tester 的任務時，該 Tester 的所有附屬角色 MUST 一併 despawn
@@ -178,5 +178,5 @@
 - 本系統僅在 Vite dev server（瀏覽器模式）下運行，不需支援 VS Code extension 模式
 - 每台裝置同一時間只會被一個 Tester 使用，不支援同一台手機跑多個 Goose session
 - 辦公室 layout 中有足夠的座位容納合理數量的 Tester（≤10 台裝置）
-- 子工具的事件格式遵循現有 `gooseEvents.ts` 定義的 `droidclaw_start / droidclaw_step / droidclaw_done` 結構
+- 子工具的事件格式遵循現有 `gooseEvents.ts` 定義的 `droidrun_plan / droidrun_action / droidrun_result` 結構
 - 裝置序號在 ADB 連線期間保持穩定不變

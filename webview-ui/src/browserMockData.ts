@@ -78,15 +78,15 @@ export function scheduleMockTestSession(dispatch: (data: unknown) => void): void
     swapTool(TESTER_ID, 'tester-parse', 'tester-plan', '規劃測試步驟：5 步驟自動化腳本');
   });
 
-  // ── Tester dispatches DroidClaw (sub-agent spawn with matrix effect) ────────
+  // ── Tester dispatches DroidRun (sub-agent spawn with matrix effect) ────────
   after(4000, () => {
     // Subtask: prefix triggers sub-agent spawn (matrix rain effect)
-    swapTool(TESTER_ID, 'tester-plan', 'tester-dc', 'Subtask:DroidClaw 執行裝置操作');
+    swapTool(TESTER_ID, 'tester-plan', 'tester-dc', 'Subtask:DroidRun 執行裝置操作');
   });
 
   // ── Mid-test: PM checks in ──────────────────────────────────────────────────
   after(2000, () => {
-    goWork(PM_ID, 'pm-checkin', '確認 Tester 進度：DroidClaw 執行中');
+    goWork(PM_ID, 'pm-checkin', '確認 Tester 進度：DroidRun 執行中');
   });
 
   after(4000, () => {
@@ -98,7 +98,7 @@ export function scheduleMockTestSession(dispatch: (data: unknown) => void): void
     goIdle(ANALYST_ID, 'analyst-report');
   });
 
-  // ── DroidClaw done (sub-agent despawn with matrix effect), Tester verifies ──
+  // ── DroidRun done (sub-agent despawn with matrix effect), Tester verifies ──
   after(15000, () => {
     dispatch({ type: 'agentToolDone', id: TESTER_ID, toolId: 'tester-dc' });
     dispatch({ type: 'agentToolsClear', id: TESTER_ID });
@@ -184,7 +184,7 @@ export function scheduleMockTester3Session(dispatch: (data: unknown) => void, id
   after(6000, () => goIdle('t3-patch'));
 }
 
-/** Tester 2 agent mock — Lab 2 獨立測試循環，包含 DroidClaw 2 */
+/** Tester 2 agent mock — Lab 2 獨立測試循環，包含 DroidRun 2 */
 export function scheduleMockTester2Session(dispatch: (data: unknown) => void, id: number): void {
   let cursor = 0;
   function after(ms: number, fn: () => void): void {
@@ -209,9 +209,9 @@ export function scheduleMockTester2Session(dispatch: (data: unknown) => void, id
   after(8000, () => goWork('t2-read', '收到任務，讀取測試案例 STTL-200015 藍牙配對'));
   after(5000, () => swapTool('t2-read', 't2-plan', '規劃測試步驟：開啟藍牙 → 搜尋 → 配對 → 傳檔'));
   // Subtask: prefix triggers sub-agent spawn (matrix rain effect)
-  after(4000, () => swapTool('t2-plan', 't2-dc', 'Subtask:DroidClaw 2 執行藍牙裝置操作'));
+  after(4000, () => swapTool('t2-plan', 't2-dc', 'Subtask:DroidRun 2 執行藍牙裝置操作'));
 
-  // DroidClaw 2 sub-agent works for ~20s then done (despawn with matrix effect)
+  // DroidRun 2 sub-agent works for ~20s then done (despawn with matrix effect)
   after(20000, () => {
     dispatch({ type: 'agentToolDone', id, toolId: 't2-dc' });
     dispatch({ type: 'agentToolsClear', id });

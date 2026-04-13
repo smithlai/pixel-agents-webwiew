@@ -65,50 +65,50 @@ async function main(): Promise<void> {
   write({ type: 'tool_end', toolId: 't2', toolName: 'todo_write', extension: 'todo' });
   await sleep(1500);
 
-  // ── 派出 DroidClaw 連 WiFi ────────────────────────────────────
+  // ── 派出 DroidRun 連 WiFi ────────────────────────────────────
   write({ type: 'tool_start', toolId: 't3', toolName: 'shell', extension: 'developer' });
   await sleep(500);
   write({ type: 'tool_args', toolId: 't3', key: 'command', value: 'python run-test.py "Connect to WiFi"' });
   await sleep(3000);
 
-  write({ type: 'droidclaw_start', parentToolId: 't3', goal: 'Connect to WiFi' });
+  write({ type: 'droidrun_plan', parentToolId: 't3', goal: 'Connect to WiFi' });
   await sleep(2000);
 
-  write({ type: 'droidclaw_step', parentToolId: 't3', step: 1, maxSteps: 50, think: 'Opening WiFi settings', decision: 'open_settings — Open WiFi settings (2609ms)' });
+  write({ type: 'droidrun_action', parentToolId: 't3', step: 1, maxSteps: 50, think: 'Opening WiFi settings', decision: 'open_settings — Open WiFi settings (2609ms)' });
   await sleep(3000);
 
-  write({ type: 'droidclaw_step', parentToolId: 't3', step: 2, maxSteps: 50, think: 'WiFi already connected to ST_Public', decision: 'done — WiFi connected (2202ms)' });
+  write({ type: 'droidrun_action', parentToolId: 't3', step: 2, maxSteps: 50, think: 'WiFi already connected to ST_Public', decision: 'done — WiFi connected (2202ms)' });
   await sleep(1500);
 
-  write({ type: 'droidclaw_done', parentToolId: 't3', success: true, message: 'WiFi connected to ST_Public', totalSteps: 2 });
+  write({ type: 'droidrun_result', parentToolId: 't3', success: true, message: 'WiFi connected to ST_Public', totalSteps: 2 });
   await sleep(1000);
-  write({ type: 'droidclaw_log', path: 'logs/simulate-wifi.json' });
+  write({ type: 'droidrun_log', path: 'logs/simulate-wifi.json' });
   await sleep(500);
   write({ type: 'tool_end', toolId: 't3', toolName: 'shell', extension: 'developer' });
   await sleep(2000);
 
-  // ── 派出 DroidClaw 開 Settings ────────────────────────────────
+  // ── 派出 DroidRun 開 Settings ────────────────────────────────
   write({ type: 'tool_start', toolId: 't4', toolName: 'shell', extension: 'developer' });
   await sleep(500);
   write({ type: 'tool_args', toolId: 't4', key: 'command', value: 'python run-test.py "Open Settings and go to Languages"' });
   await sleep(3000);
 
-  write({ type: 'droidclaw_start', parentToolId: 't4', goal: 'Open Settings and go to Languages' });
+  write({ type: 'droidrun_plan', parentToolId: 't4', goal: 'Open Settings and go to Languages' });
   await sleep(2000);
 
-  write({ type: 'droidclaw_step', parentToolId: 't4', step: 1, maxSteps: 50, think: 'Looking for Settings app', decision: 'find_and_tap — Tap Settings icon (3470ms)' });
+  write({ type: 'droidrun_action', parentToolId: 't4', step: 1, maxSteps: 50, think: 'Looking for Settings app', decision: 'find_and_tap — Tap Settings icon (3470ms)' });
   await sleep(3000);
 
-  write({ type: 'droidclaw_step', parentToolId: 't4', step: 2, maxSteps: 50, think: 'Settings open, navigate to System', decision: 'tap — Tap System (1934ms)' });
+  write({ type: 'droidrun_action', parentToolId: 't4', step: 2, maxSteps: 50, think: 'Settings open, navigate to System', decision: 'tap — Tap System (1934ms)' });
   await sleep(2500);
 
-  write({ type: 'droidclaw_step', parentToolId: 't4', step: 3, maxSteps: 50, think: 'In System, tap Languages & input', decision: 'tap — Tap Languages & input (3007ms)' });
+  write({ type: 'droidrun_action', parentToolId: 't4', step: 3, maxSteps: 50, think: 'In System, tap Languages & input', decision: 'tap — Tap Languages & input (3007ms)' });
   await sleep(3000);
 
-  write({ type: 'droidclaw_step', parentToolId: 't4', step: 4, maxSteps: 50, think: 'Languages section open', decision: 'done — Languages & input section reached (1579ms)' });
+  write({ type: 'droidrun_action', parentToolId: 't4', step: 4, maxSteps: 50, think: 'Languages section open', decision: 'done — Languages & input section reached (1579ms)' });
   await sleep(1500);
 
-  write({ type: 'droidclaw_done', parentToolId: 't4', success: true, message: 'Languages & input section reached', totalSteps: 4 });
+  write({ type: 'droidrun_result', parentToolId: 't4', success: true, message: 'Languages & input section reached', totalSteps: 4 });
   await sleep(1000);
   write({ type: 'tool_end', toolId: 't4', toolName: 'shell', extension: 'developer' });
   await sleep(2000);

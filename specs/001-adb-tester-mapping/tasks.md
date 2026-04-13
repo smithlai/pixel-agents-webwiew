@@ -105,17 +105,17 @@
 
 ## Phase 6: User Story 4 — 子工具 Spawn 附屬角色 (Priority: P2)
 
-**Goal**: DroidClaw/DroidRun 呼叫時 spawn 附屬角色顯示步驟進度
+**Goal**: DroidRun 呼叫時 spawn 附屬角色顯示步驟進度
 
-**Independent Test**: Tester 的 Goose 呼叫 DroidClaw → 附屬角色出現 → 完成後消失
+**Independent Test**: Tester 的 Goose 呼叫 DroidRun → 附屬角色出現 → 完成後消失
 
 ### Implementation for User Story 4
 
-- [ ] T027 [US4] Verify EventTranslator droidclaw_start/step/done translation in server/eventTranslator.ts — ensure agentToolStart with "Subtask:" prefix uses correct dynamic agentId per device
+- [ ] T027 [US4] Verify EventTranslator droidrun_plan/action/result translation in server/eventTranslator.ts — ensure agentToolStart with "Subtask:" prefix uses correct dynamic agentId per device
 - [ ] T028 [US4] Verify subagent spawn/despawn in webview-ui/src/hooks/useExtensionMessages.ts — existing subagentToolStart/subagentClear messages should work with dynamic agent IDs (integration check, may need no code change)
 - [ ] T029 [US4] Ensure stop button cascades to sub-agents in webview-ui/src/hooks/useExtensionMessages.ts — on task-stopped, removeAllSubagents(agentId) is called
 
-**Checkpoint**: DroidClaw events spawn a sub-agent near Tester with matrix rain; sub-agent despawns on tool completion or parent stop
+**Checkpoint**: DroidRun events spawn a sub-agent near Tester with matrix rain; sub-agent despawns on tool completion or parent stop
 
 ---
 
@@ -182,7 +182,7 @@
 - **US1 (P1)**: Foundation only — can implement after Phase 2
 - **US2 (P1)**: Requires US1 (Testers must exist to assign tasks)
 - **US3 (P2)**: Requires US2 (active tasks must exist to stop)
-- **US4 (P2)**: Requires US2 (JSONL events must flow to trigger DroidClaw)
+- **US4 (P2)**: Requires US2 (JSONL events must flow to trigger DroidRun)
 - **US5 (P3)**: Foundation only — fully independent
 - **US6 (P2)**: Requires US2 — integration verification of concurrent behavior
 

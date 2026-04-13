@@ -7,7 +7,7 @@
 
 ## Summary
 
-為 GooseOffice pixel-art 辦公室視覺化系統新增 ADB 裝置自動偵測功能。每台連線的 Android 手機自動產生一個 Tester 角色，Boss 可透過指令輸入框下令，系統自動分配待命的 Tester 執行 MobileGoose 測試。工作中的 Tester 可被停止，子工具（DroidClaw）spawn 附屬角色。現有 mock 角色透過 static boolean 控制開關。
+為 GooseOffice pixel-art 辦公室視覺化系統新增 ADB 裝置自動偵測功能。每台連線的 Android 手機自動產生一個 Tester 角色，Boss 可透過指令輸入框下令，系統自動分配待命的 Tester 執行 MobileGoose 測試。工作中的 Tester 可被停止，子工具（DroidRun）spawn 附屬角色。現有 mock 角色透過 static boolean 控制開關。
 
 ## Technical Context
 
