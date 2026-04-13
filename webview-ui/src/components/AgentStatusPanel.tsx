@@ -149,12 +149,15 @@ function AgentCard({
   if (!ch) return null;
 
   const isSub = ch.isSubagent;
+  const sub = isSub ? subagentCharacters.find((s) => s.id === id) : null;
   const activityText = isSub
-    ? (subagentCharacters.find((s) => s.id === id)?.label ?? 'Subtask')
+    ? (sub?.label ?? 'Subtask')
     : getActivityText(id, agentTools, ch.isActive);
   const status = getStatusInfo(id, agentTools, ch.isActive, isSub, ch.bubbleType);
   const profile = ch.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
-  const name = ch.folderName ?? profile?.name ?? `Agent ${id}`;
+  const name = isSub
+    ? (sub?.name ?? `Agent ${id}`)
+    : ch.folderName ?? profile?.name ?? `Agent ${id}`;
   const modelLabel = profile?.model;
   const roomLabel = profile ? getRoomDisplayName(profile) : null;
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { playDoneSound, playPermissionSound, setSoundEnabled } from '../notificationSound.js';
-import { generateTesterProfile, releaseTesterSeat } from '../office/agentProfiles.js';
+import { DEFAULT_PROFILES, generateTesterProfile, releaseTesterSeat } from '../office/agentProfiles.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import { setFloorSprites } from '../office/floorTiles.js';
 import { buildDynamicCatalog } from '../office/layout/furnitureCatalog.js';
@@ -17,6 +17,7 @@ export interface SubagentCharacter {
   parentAgentId: number;
   parentToolId: string;
   label: string;
+  name: string;
 }
 
 export interface FurnitureAsset {
@@ -245,9 +246,14 @@ export function useExtensionMessages(
         if (status.startsWith('Subtask:')) {
           const label = status.slice('Subtask:'.length).trim();
           const subId = os.addSubagent(id, toolId);
+          const parentCh = os.characters.get(id);
+          const parentProfile = parentCh?.profileKey ? DEFAULT_PROFILES[parentCh.profileKey] : null;
+          const parentName = parentCh?.folderName ?? parentProfile?.name ?? `Agent ${id}`;
           setSubagentCharacters((prev) => {
             if (prev.some((s) => s.id === subId)) return prev;
-            return [...prev, { id: subId, parentAgentId: id, parentToolId: toolId, label }];
+            const index = prev.filter((s) => s.parentAgentId === id).length + 1;
+            const name = `${parentName}-DroidRun-${index}`;
+            return [...prev, { id: subId, parentAgentId: id, parentToolId: toolId, label, name }];
           });
         }
       } else if (msg.type === 'agentToolDone') {

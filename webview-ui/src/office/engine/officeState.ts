@@ -550,11 +550,11 @@ export class OfficeState {
             const seat = this.seats.get(ch.seatId);
             if (seat) seat.assigned = false;
           }
+          ch.bubbleType = null;
           // Start despawn animation
           ch.matrixEffect = 'despawn';
           ch.matrixEffectTimer = 0;
           ch.matrixEffectSeeds = matrixEffectSeeds();
-          ch.bubbleType = null;
         }
         this.subagentMeta.delete(id);
         if (this.selectedAgentId === id) this.selectedAgentId = null;
