@@ -43,3 +43,4 @@ webview-ui/.runtime/
 # Browser-mode runtime state (generated, not versioned)
 .runtime/*
 !.runtime/default-office-layout.json
+!.runtime/pixel-agents-browser-workspace-state.json
