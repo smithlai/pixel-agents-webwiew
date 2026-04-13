@@ -163,7 +163,7 @@ export class DeviceManager {
   }
 
   /** Mark a task as complete and reset agent to idle */
-  completeTask(serial: string, _reason: 'completed' | 'user-stop' | 'error' | 'spawn-timeout'): DeviceAgent | null {
+  completeTask(serial: string, _reason: 'completed' | 'user-stop' | 'error' | 'spawn-timeout' | 'heartbeat-stale'): DeviceAgent | null {
     const agent = this.agents.get(serial);
     if (!agent || agent.state === 'idle') return null;
 
@@ -173,6 +173,46 @@ export class DeviceManager {
     this.notifyChange();
 
     return agent;
+  }
+
+  /**
+   * Reconcile an agent's state against filesystem truth (heartbeat files).
+   *
+   * Called periodically by HeartbeatWatchdog.  The filesystem is the source
+   * of truth; `state` is cache.  Two bidirectional cases:
+   *
+   *   active + !hasLiveHeartbeat → release (Goose crashed / killed / network)
+   *   idle   + hasLiveHeartbeat  → externally busy (another server running,
+   *                                 or someone invoked the wrapper manually)
+   *
+   * The 'error' state is left alone (it's a transient hold for disconnected
+   * devices, the poller will remove the agent entirely within 3 s).
+   */
+  reconcileFromHeartbeat(
+    serial: string,
+    hasLiveHeartbeat: boolean,
+  ): 'released' | 'marked-busy' | 'noop' {
+    const agent = this.agents.get(serial);
+    if (!agent) return 'noop';
+    if (agent.state === 'error') return 'noop';
+
+    if (agent.state === 'active' && !hasLiveHeartbeat) {
+      agent.state = 'idle';
+      agent.idleSince = Date.now();
+      agent.task = null;
+      this.notifyChange();
+      return 'released';
+    }
+
+    if (agent.state === 'idle' && hasLiveHeartbeat) {
+      agent.state = 'active';
+      // No task object — this is an externally-driven session.  UI will
+      // show "busy" but no stop button (task=null short-circuits /goose/kill).
+      this.notifyChange();
+      return 'marked-busy';
+    }
+
+    return 'noop';
   }
 
   /** Set PID on the active task (after spawn) */

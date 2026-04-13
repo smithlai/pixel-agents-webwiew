@@ -23,6 +23,7 @@ import { DeviceManager } from './deviceManager.ts';
 import { EventTranslator } from './eventTranslator.ts';
 import { GooseWatcher } from './gooseWatcher.ts';
 import { heartbeatFilename } from './heartbeatPaths.ts';
+import { HeartbeatWatchdog } from './heartbeatWatchdog.ts';
 
 // Project root = one level up from this file (server/)
 const __filename = fileURLToPath(import.meta.url);
@@ -90,6 +91,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
   const { watchDir, agentId = 103, mobileGooseDir } = options;
 
   let watcher: GooseWatcher | null = null;
+  let heartbeatWatchdog: HeartbeatWatchdog | null = null;
   const deviceManager = new DeviceManager();
   const adbPoller = new AdbPoller((devices) => {
     deviceManager.updateDevices(devices);
@@ -272,6 +274,25 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
       await adbPoller.start();
       console.log('[GoosePlugin] ADB polling started');
 
+      // Heartbeat watchdog — 以檔案系統為真理的收斂層。
+      // 每 15s 掃 watchDir 的 .heartbeat 檔，對照 DeviceManager 狀態：
+      //   active + 無活心跳 → 釋放（crash/kill-9/斷電）
+      //   idle   + 有活心跳 → 標記外部 busy（別的 server / 手動 wrapper）
+      heartbeatWatchdog = new HeartbeatWatchdog({
+        watchDir,
+        deviceManager,
+        onRelease: (serial, agentId) => {
+          broadcastRaw({
+            type: 'task-stopped',
+            serial,
+            agentId,
+            reason: 'error',
+          });
+        },
+      });
+      heartbeatWatchdog.start();
+      console.log('[GoosePlugin] HeartbeatWatchdog started');
+
       // ── REST endpoints ──────────────────────────────────────────────────
       const base = server.config.base.replace(/\/$/, '');
 
@@ -378,6 +399,10 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
               res.end(JSON.stringify({ error: 'no_devices', message: '沒有偵測到 ADB 裝置' }));
               return;
             }
+
+            // 派工前強制 reconcile：心跳檔是真理，先把快取對齊再下決策，
+            // 避免外部 session 剛起來或剛 crash，快取還沒追上。
+            heartbeatWatchdog?.tick();
 
             // Check specific device busy
             if (serial) {
