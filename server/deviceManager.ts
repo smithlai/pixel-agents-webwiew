@@ -14,7 +14,6 @@ import type {
   AdbDevice,
   ActiveTask,
   DeviceAgent,
-  DeviceAgentState,
 } from './deviceTypes.ts';
 import { DEVICE_AGENT_ID_START, TESTRUN_PREFIX } from './deviceTypes.ts';
 import { EventTranslator } from './eventTranslator.ts';
@@ -164,9 +163,9 @@ export class DeviceManager {
   }
 
   /** Mark a task as complete and reset agent to idle */
-  completeTask(serial: string, _reason: 'completed' | 'user-stop' | 'error'): DeviceAgent | null {
+  completeTask(serial: string, _reason: 'completed' | 'user-stop' | 'error' | 'spawn-timeout'): DeviceAgent | null {
     const agent = this.agents.get(serial);
-    if (!agent) return null;
+    if (!agent || agent.state === 'idle') return null;
 
     agent.state = 'idle';
     agent.idleSince = Date.now();

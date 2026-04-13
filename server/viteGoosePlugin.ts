@@ -22,6 +22,7 @@ import { AdbPoller } from './adbPoller.ts';
 import { DeviceManager } from './deviceManager.ts';
 import { EventTranslator } from './eventTranslator.ts';
 import { GooseWatcher } from './gooseWatcher.ts';
+import { heartbeatFilename } from './heartbeatPaths.ts';
 
 // Project root = one level up from this file (server/)
 const __filename = fileURLToPath(import.meta.url);
@@ -235,6 +236,16 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
           const messages = translator.translate(event);
           console.log(`[GoosePlugin] Event: ${event.type} → ${messages.length} messages (${clients.size} clients)${serial ? ` [${serial}]` : ''}`);
           broadcast(messages);
+
+          // session_end 快路徑：Goose 自然結束時立即釋放本地 DeviceManager 快取。
+          // 外部 session（別的 server 派的工）不在這裡處理，由 heartbeat
+          // watchdog 以檔案系統為真理自行收斂。
+          if (serial && event.type === 'session_end') {
+            const completed = deviceManager.completeTask(serial, 'completed');
+            if (completed) {
+              console.log(`[GoosePlugin] Device ${serial} released (agent ${completed.agentId})`);
+            }
+          }
         },
         onFileFound: (file) => {
           console.log(`[GoosePlugin] Detected JSONL: ${file}`);
@@ -391,6 +402,19 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             const { agent: assigned, testrun } = assignment;
             console.log(`[GoosePlugin] Spawning MobileGoose: ${command} → ${assigned.serial} (agent ${assigned.agentId}, testrun ${testrun})`);
 
+            // Placeholder heartbeat：派工的瞬間先 touch 檔案，消除「assign
+            // → spawn → wrapper 啟動」之間約 3~5 秒的真空期（其間 heartbeat
+            // watchdog 會誤判死亡）。wrapper 啟動後會 touch 同一個檔名（都
+            // 走 sanitize_testrun），自然接手更新。若 wrapper 從未啟動，
+            // mtime 不再前進，watchdog 會在 STALE_THRESHOLD 後正確釋放。
+            try {
+              const hbPath = path.join(watchDir, heartbeatFilename(testrun));
+              fs.mkdirSync(path.dirname(hbPath), { recursive: true });
+              fs.writeFileSync(hbPath, `${Date.now()} (pixel-agents placeholder)`, 'utf8');
+            } catch (err) {
+              console.warn(`[GoosePlugin] Failed to write placeholder heartbeat for ${testrun}:`, err);
+            }
+
             // Write command to a temp .cmd file to avoid quoting hell when
             // passing through Node → PowerShell → CMD → BAT → Python layers.
             // The .cmd self-deletes after execution.
@@ -410,28 +434,71 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
 
             // Use PowerShell Start-Process -WindowStyle Hidden so the entire
             // process tree (cmd + bat + python + goose) stays invisible.
+            // -PassThru 讓 Start-Process 回傳 Process 物件，我們 pipe 出 Id 後
+            // 在 Node 端 capture stdout → parse 成 cmd 的 PID → setTaskPid。
+            // 之後 /goose/kill 可用 taskkill /T 連整棵子樹（bat/python/goose）一起收。
             const safeTmp = tmpCmd.replace(/'/g, "''");
             const psCommand =
               `Start-Process -FilePath cmd` +
               ` -ArgumentList '/c','${safeTmp}'` +
-              ` -WindowStyle Hidden`;
+              ` -WindowStyle Hidden` +
+              ` -PassThru | Select-Object -ExpandProperty Id`;
             const ps = child_process.spawn('powershell', [
               '-NoProfile', '-NonInteractive', '-Command', psCommand,
             ], {
               stdio: ['ignore', 'pipe', 'pipe'],
               windowsHide: true,
             });
+            let psStdout = '';
             let psStderr = '';
+            ps.stdout?.on('data', (chunk: Buffer) => { psStdout += chunk.toString(); });
             ps.stderr?.on('data', (chunk: Buffer) => { psStderr += chunk.toString(); });
             ps.on('close', (code) => {
+              // 注意：Start-Process 是 detached spawn，PowerShell 的 exit code
+              // 只代表「我有沒有成功 fire-and-forget」，不代表 cmd/bat/goose
+              // 是否還活著。所以這裡只記錄，不做釋放。真正的「啟動失敗」由
+              // 下方的 spawn watchdog 透過「JSONL 是否出現」來判定。
               if (code !== 0 || psStderr) {
                 console.error(
                   `[GoosePlugin] PowerShell exited with code ${code}` +
                   (psStderr ? `\n${psStderr}` : ''),
                 );
               }
+              // Parse spawned cmd PID from PowerShell stdout (-PassThru | Select Id)
+              const pid = parseInt(psStdout.trim(), 10);
+              if (Number.isFinite(pid) && pid > 0) {
+                const agent = deviceManager.getAgent(assigned.serial);
+                if (agent?.task?.testrun === testrun) {
+                  deviceManager.setTaskPid(assigned.serial, pid);
+                  console.log(`[GoosePlugin] Captured cmd PID ${pid} for testrun ${testrun}`);
+                }
+              } else {
+                console.warn(`[GoosePlugin] Failed to parse spawned PID from stdout: "${psStdout.trim()}"`);
+              }
             });
             ps.unref();
+
+            // Spawn watchdog — 防卡死後援。
+            // 若 60 秒內裝置仍綁定本次 testrun 且 GooseWatcher 從未偵測到
+            // 對應的 JSONL（jsonlFile 仍為空），代表 Goose 整條啟動鏈
+            // (PowerShell → cmd → bat → python → goose) 真的沒起來，安全釋放。
+            // 一旦 JSONL 出現後，後續 session 生命週期由 session_start /
+            // session_end 事件接管，與 spawn 無關。
+            setTimeout(() => {
+              const agent = deviceManager.getAgent(assigned.serial);
+              if (agent?.task?.testrun === testrun && !agent.task.jsonlFile) {
+                console.warn(
+                  `[GoosePlugin] Spawn watchdog: no JSONL after 60s for ${assigned.serial} (testrun ${testrun}) — releasing device`,
+                );
+                deviceManager.completeTask(assigned.serial, 'spawn-timeout');
+                broadcastRaw({
+                  type: 'task-stopped',
+                  serial: assigned.serial,
+                  agentId: assigned.agentId,
+                  reason: 'spawn-timeout',
+                });
+              }
+            }, 60_000);
 
             // Broadcast task-assigned to all clients
             broadcastRaw({
