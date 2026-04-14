@@ -1,10 +1,10 @@
 import type { ColorValue } from '../../../components/ui/types.js';
 import { CHARACTER_SITTING_OFFSET_PX, REFLECTION_ALPHA, REFLECTION_GAP_PX } from '../../../constants.js';
 import { getCachedSprite } from '../../sprites/spriteCache.js';
-import { getCharacterSprites } from '../../sprites/spriteData.js';
+import { getCharacterFrameCanvases, getCharacterSprites } from '../../sprites/spriteData.js';
 import type { Character, FurnitureInstance } from '../../types.js';
 import { CharacterState, TILE_SIZE } from '../../types.js';
-import { getCharacterSprite } from '../characters.js';
+import { getCharacterSheetCoords, getCharacterSprite } from '../characters.js';
 import type { RenderContext, RenderPlugin } from './types.js';
 
 function buildReflectiveTileSet(
@@ -106,22 +106,55 @@ function render(rctx: RenderContext): void {
   for (const char of characters) {
     if (char.matrixEffect) continue;
 
-    const sprites = getCharacterSprites(char.palette, char.hueShift);
-    const spriteData = getCharacterSprite(char, sprites);
-    const cached = getCachedSprite(spriteData, zoom);
     const sittingOffset = char.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
-    const drawX = Math.round(offsetX + char.x * zoom - cached.width / 2);
-    const drawY = Math.round(offsetY + (char.y + sittingOffset) * zoom - cached.height);
-    const mirrorY = drawY + cached.height + gapPx;
+    const hiRes = getCharacterFrameCanvases(char.palette);
 
-    off.save();
-    off.beginPath();
-    off.rect(drawX, mirrorY, cached.width, s);
-    off.clip();
-    off.translate(0, 2 * mirrorY);
-    off.scale(1, -1);
-    off.drawImage(cached, drawX, drawY);
-    off.restore();
+    if (hiRes) {
+      // Route B: high-res frame canvas path (mirrors renderer.ts logic)
+      const { row, col, mirror } = getCharacterSheetCoords(char);
+      const fc = hiRes[row]![col]!;
+      const dstW = TILE_SIZE * zoom;
+      const dstH = TILE_SIZE * 2 * zoom;
+      const drawX = Math.round(offsetX + char.x * zoom - dstW / 2);
+      const drawY = Math.round(offsetY + (char.y + sittingOffset) * zoom - dstH);
+      const mirrorY = drawY + dstH + gapPx;
+
+      off.save();
+      off.beginPath();
+      off.rect(drawX, mirrorY, dstW, s);
+      off.clip();
+      off.translate(0, 2 * mirrorY);
+      off.scale(1, -1);
+      off.imageSmoothingEnabled = true;
+      off.imageSmoothingQuality = 'high';
+      if (mirror) {
+        off.save();
+        off.translate(drawX + dstW, drawY);
+        off.scale(-1, 1);
+        off.drawImage(fc, 0, 0, fc.width, fc.height, 0, 0, dstW, dstH);
+        off.restore();
+      } else {
+        off.drawImage(fc, 0, 0, fc.width, fc.height, drawX, drawY, dstW, dstH);
+      }
+      off.restore();
+    } else {
+      // Route A: SpriteData cached sprite path
+      const sprites = getCharacterSprites(char.palette, char.hueShift);
+      const spriteData = getCharacterSprite(char, sprites);
+      const cached = getCachedSprite(spriteData, zoom);
+      const drawX = Math.round(offsetX + char.x * zoom - cached.width / 2);
+      const drawY = Math.round(offsetY + (char.y + sittingOffset) * zoom - cached.height);
+      const mirrorY = drawY + cached.height + gapPx;
+
+      off.save();
+      off.beginPath();
+      off.rect(drawX, mirrorY, cached.width, s);
+      off.clip();
+      off.translate(0, 2 * mirrorY);
+      off.scale(1, -1);
+      off.drawImage(cached, drawX, drawY);
+      off.restore();
+    }
   }
 
   off.restore();

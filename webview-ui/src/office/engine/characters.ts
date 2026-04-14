@@ -493,6 +493,28 @@ export function getCharacterSprite(ch: Character, sprites: CharacterSprites): Sp
   }
 }
 
+/** Map character state/dir/frame to sprite sheet (row, col, mirror) for canvas-based Route B rendering. */
+export function getCharacterSheetCoords(
+  ch: Character,
+): { row: 0 | 1 | 2; col: number; mirror: boolean } {
+  const mirror = ch.dir === Direction.LEFT;
+  const row: 0 | 1 | 2 =
+    ch.dir === Direction.DOWN ? 0 : ch.dir === Direction.UP ? 1 : 2;
+
+  let col: number;
+  switch (ch.state) {
+    case CharacterState.TYPE:
+      col = isReadingTool(ch.currentTool) ? 5 + (ch.frame % 2) : 3 + (ch.frame % 2);
+      break;
+    case CharacterState.WALK:
+      col = [0, 1, 2, 1][ch.frame % 4];
+      break;
+    default:
+      col = 1; // standing pose
+  }
+  return { row, col, mirror };
+}
+
 function randomRange(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }

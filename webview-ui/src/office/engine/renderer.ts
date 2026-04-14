@@ -42,6 +42,7 @@ import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js';
 import {
   BUBBLE_PERMISSION_SPRITE,
   BUBBLE_WAITING_SPRITE,
+  getCharacterFrameCanvases,
   getCharacterSprites,
 } from '../sprites/spriteData.js';
 import type {
@@ -53,7 +54,7 @@ import type {
 } from '../types.js';
 import { CharacterState, TILE_SIZE, TileType } from '../types.js';
 import { getWallInstances, hasWallSprites, wallColorToHex } from '../wallTiles.js';
-import { getCharacterSprite } from './characters.js';
+import { getCharacterSheetCoords, getCharacterSprite } from './characters.js';
 import { renderMatrixEffect } from './matrixEffect.js';
 import { runPlugins } from './plugins/index.js';
 
@@ -111,6 +112,7 @@ interface ZDrawable {
   draw: (ctx: CanvasRenderingContext2D) => void;
 }
 
+
 /** @internal */
 export function renderScene(
   ctx: CanvasRenderingContext2D,
@@ -154,12 +156,13 @@ export function renderScene(
   for (const ch of characters) {
     const sprites = getCharacterSprites(ch.palette, ch.hueShift);
     const spriteData = getCharacterSprite(ch, sprites);
-    const cached = getCachedSprite(spriteData, zoom);
     // Sitting offset: shift character down when seated so they visually sit in the chair
     const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
+    const dstW = TILE_SIZE * zoom;
+    const dstH = TILE_SIZE * 2 * zoom;
     // Anchor at bottom-center of character — round to integer device pixels
-    const drawX = Math.round(offsetX + ch.x * zoom - cached.width / 2);
-    const drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - cached.height);
+    const drawX = Math.round(offsetX + ch.x * zoom - dstW / 2);
+    const drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - dstH);
 
     // Sort characters by bottom of their tile (not center) so they render
     // in front of same-row furniture (e.g. chairs) but behind furniture
@@ -182,9 +185,12 @@ export function renderScene(
     }
 
     // White outline: full opacity for selected, 50% for hover
+    // Skip for high-res canvas chars — smooth-downsampled SpriteData has semi-transparent
+    // edge pixels that produce noise dots in the outline.
+    const hiRes = getCharacterFrameCanvases(ch.palette);
     const isSelected = selectedAgentId !== null && ch.id === selectedAgentId;
     const isHovered = hoveredAgentId !== null && ch.id === hoveredAgentId;
-    if (isSelected || isHovered) {
+    if (!hiRes && (isSelected || isHovered)) {
       const outlineAlpha = isSelected ? SELECTED_OUTLINE_ALPHA : HOVERED_OUTLINE_ALPHA;
       const outlineData = getOutlineSprite(spriteData);
       const outlineCached = getCachedSprite(outlineData, zoom);
@@ -201,12 +207,40 @@ export function renderScene(
       });
     }
 
-    drawables.push({
-      zY: charZY,
-      draw: (c) => {
-        c.drawImage(cached, drawX, drawY);
-      },
-    });
+    // Route B: high-res pre-extracted frame canvas path
+    if (hiRes) {
+      const { row, col, mirror } = getCharacterSheetCoords(ch);
+      const fc = hiRes[row][col];
+      const mDrawX = drawX;
+      const mDrawY = drawY;
+      const mDstW = dstW;
+      const mDstH = dstH;
+      drawables.push({
+        zY: charZY,
+        draw: (c) => {
+          c.imageSmoothingEnabled = true;
+          c.imageSmoothingQuality = 'high';
+          if (mirror) {
+            c.save();
+            c.translate(mDrawX + mDstW, mDrawY);
+            c.scale(-1, 1);
+            c.drawImage(fc, 0, 0, fc.width, fc.height, 0, 0, mDstW, mDstH);
+            c.restore();
+          } else {
+            c.drawImage(fc, 0, 0, fc.width, fc.height, mDrawX, mDrawY, mDstW, mDstH);
+          }
+          c.imageSmoothingEnabled = false;
+        },
+      });
+    } else {
+      const cached = getCachedSprite(spriteData, zoom);
+      drawables.push({
+        zY: charZY,
+        draw: (c) => {
+          c.drawImage(cached, drawX, drawY);
+        },
+      });
+    }
   }
 
   // Sort by Y (lower = in front = drawn later)

@@ -47,6 +47,30 @@ export function getLoadedCharacterCount(): number {
   return loadedCharacters ? loadedCharacters.length : PALETTE_COUNT;
 }
 
+// ── High-res frame canvas path (Route B) ────────────────────────────────────
+//
+// Each palette stores a 2D array of pre-extracted frame canvases:
+//   frameCanvases[dirIdx][frameCol]
+// dirIdx: 0=down, 1=up, 2=right  (left is runtime-mirrored from right)
+// frameCol: 0-6 matching CHAR_FRAMES_PER_ROW
+
+const characterFrameCanvases = new Map<number, HTMLCanvasElement[][]>();
+
+/** Register pre-extracted frame canvases for high-res rendering (Route B). */
+export function setCharacterFrameCanvases(
+  paletteIdx: number,
+  frames: HTMLCanvasElement[][],
+): void {
+  characterFrameCanvases.set(paletteIdx, frames);
+}
+
+/** Returns frame canvases for a palette, or null if using legacy SpriteData path. */
+export function getCharacterFrameCanvases(
+  paletteIdx: number,
+): HTMLCanvasElement[][] | null {
+  return characterFrameCanvases.get(paletteIdx) ?? null;
+}
+
 /** Flip a SpriteData horizontally (for generating left sprites from right) */
 function flipSpriteHorizontal(sprite: SpriteData): SpriteData {
   return sprite.map((row) => [...row].reverse());
