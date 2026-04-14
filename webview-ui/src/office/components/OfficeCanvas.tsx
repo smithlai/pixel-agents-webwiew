@@ -97,16 +97,19 @@ export function OfficeCanvas({
   );
 
   // Resize canvas backing store to device pixels (no DPR transform on ctx)
+  // Canvas CSS fills its container via w-full h-full; we only need to sync the backing store.
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (!canvas || !container) return;
-    const rect = container.getBoundingClientRect();
+    if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(rect.width * dpr);
-    canvas.height = Math.round(rect.height * dpr);
-    canvas.style.width = `${rect.width}px`;
-    canvas.style.height = `${rect.height}px`;
+    // clientWidth/clientHeight = actual CSS layout size (always current)
+    const newW = Math.round(canvas.clientWidth * dpr);
+    const newH = Math.round(canvas.clientHeight * dpr);
+    // Only update when dimensions actually changed — setting canvas.width clears the canvas
+    if (canvas.width !== newW || canvas.height !== newH) {
+      canvas.width = newW;
+      canvas.height = newH;
+    }
     // No ctx.scale(dpr) — we render directly in device pixels
   }, []);
 
@@ -126,6 +129,11 @@ export function OfficeCanvas({
         officeState.update(dt);
       },
       render: (ctx) => {
+        // Sync canvas backing store with container size every frame —
+        // ResizeObserver fires after rAF, causing a one-frame offset lag
+        // when the sibling panel is being resized.
+        resizeCanvas();
+
         // Canvas dimensions are in device pixels
         const w = canvas.width;
         const h = canvas.height;
@@ -778,8 +786,9 @@ export function OfficeCanvas({
   );
 
   const handleMouseLeave = useCallback(() => {
-    isPanningRef.current = false;
-    isLeftPanRef.current = false;
+    // Don't cancel isPanningRef / isLeftPanRef here — window-level
+    // mousemove/mouseup handlers continue to track the pan even
+    // when the cursor leaves the canvas.
     isEraseDraggingRef.current = false;
     editorState.isDragging = false;
     editorState.wallDragAdding = null;
@@ -840,6 +849,39 @@ export function OfficeCanvas({
   }, []);
 
   // Prevent default middle-click browser behavior (auto-scroll)
+
+  // ── Window-level pan tracking ──────────────────────────────────────────────
+  // When a pan drag starts on the canvas (middle-click or left-click drag),
+  // track mouse movement at the window level so panning continues even if
+  // the cursor leaves the canvas (e.g. into the side panel).
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isPanningRef.current && !isLeftPanRef.current) return;
+      const dpr = window.devicePixelRatio || 1;
+      const dx = (e.clientX - panStartRef.current.mouseX) * dpr;
+      const dy = (e.clientY - panStartRef.current.mouseY) * dpr;
+      panRef.current = clampPan(panStartRef.current.panX + dx, panStartRef.current.panY + dy);
+    };
+    const onUp = (e: MouseEvent) => {
+      if (e.button === 1 && isPanningRef.current) {
+        isPanningRef.current = false;
+        const canvas = canvasRef.current;
+        if (canvas) canvas.style.cursor = isEditMode ? 'crosshair' : 'default';
+      }
+      if (e.button === 0 && isLeftPanRef.current) {
+        isLeftPanRef.current = false;
+        suppressClickRef.current = true;
+        const canvas = canvasRef.current;
+        if (canvas) canvas.style.cursor = 'default';
+      }
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [clampPan, isEditMode, panRef]);
   const handleAuxClick = useCallback((e: React.MouseEvent) => {
     if (e.button === 1) e.preventDefault();
   }, []);
@@ -855,7 +897,7 @@ export function OfficeCanvas({
         onAuxClick={handleAuxClick}
         onMouseLeave={handleMouseLeave}
         onContextMenu={handleContextMenu}
-        className="block"
+        className="block w-full h-full"
       />
     </div>
   );

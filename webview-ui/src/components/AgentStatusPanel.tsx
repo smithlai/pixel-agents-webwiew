@@ -15,6 +15,11 @@ const MAX_HISTORY = 50;
 /** Default visible lines before collapsing */
 const COLLAPSED_LINES = 4;
 
+/** Panel width constraints */
+const PANEL_MIN_WIDTH = 250;
+const PANEL_MAX_WIDTH = 1200;
+const PANEL_DEFAULT_WIDTH = 680;
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface HistoryEntry {
@@ -330,6 +335,31 @@ export function AgentStatusPanel({
 }: AgentStatusPanelProps) {
   const historyMap = useActivityHistory(agents, agentTools, subagentCharacters, officeState);
 
+  const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(PANEL_DEFAULT_WIDTH);
+  const handleRef = useRef<HTMLDivElement>(null);
+
+  const handleResizeStart = useCallback((e: React.PointerEvent) => {
+    isDraggingRef.current = true;
+    startXRef.current = e.clientX;
+    startWidthRef.current = panelWidth;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }, [panelWidth]);
+
+  const handleResizeMove = useCallback((e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    // Panel is on the right side; dragging left = wider
+    const delta = startXRef.current - e.clientX;
+    setPanelWidth(Math.min(Math.max(startWidthRef.current + delta, PANEL_MIN_WIDTH), PANEL_MAX_WIDTH));
+  }, []);
+
+  const handleResizeEnd = useCallback(() => {
+    isDraggingRef.current = false;
+  }, []);
+
   if (agents.length === 0 && subagentCharacters.length === 0) return null;
 
   // Group sub-agents by parentAgentId
@@ -344,15 +374,34 @@ export function AgentStatusPanel({
     <div
       className="panel-font"
       style={{
-        width: 680,
+        width: panelWidth,
         height: '100%',
         background: 'var(--color-bg)',
         borderLeft: '2px solid var(--color-border)',
         padding: '8px 0',
         overflowY: 'auto',
         flexShrink: 0,
+        position: 'relative',
       }}
     >
+      {/* Resize drag handle — invisible 8px zone over the left border */}
+      <div
+        ref={handleRef}
+        onPointerDown={handleResizeStart}
+        onPointerMove={handleResizeMove}
+        onPointerUp={handleResizeEnd}
+        onPointerCancel={handleResizeEnd}
+        style={{
+          position: 'absolute',
+          left: -4,
+          top: 0,
+          width: 8,
+          height: '100%',
+          cursor: 'col-resize',
+          zIndex: 10,
+          touchAction: 'none',
+        }}
+      />
       <div
         style={{
           fontSize: '18px',
