@@ -5906,8 +5906,8 @@
       {
         "uid": "exec-desk",
         "type": "DESK_FRONT",
-        "col": 24,
-        "row": 7,
+        "col": 25,
+        "row": 6,
         "color": {
           "h": 30,
           "s": 50,
@@ -5916,27 +5916,21 @@
         }
       },
       {
-        "uid": "exec-chair",
-        "type": "CUSHIONED_CHAIR_BACK",
-        "col": 24,
-        "row": 9
-      },
-      {
         "uid": "exec-pc1",
-        "type": "PC_FRONT_OFF",
-        "col": 24,
-        "row": 7
+        "type": "PC_BACK",
+        "col": 26,
+        "row": 6
       },
       {
         "uid": "exec-pc2",
-        "type": "PC_FRONT_OFF",
-        "col": 26,
-        "row": 7
+        "type": "PC_SIDE:left",
+        "col": 24,
+        "row": 12
       },
       {
         "uid": "exec-plant",
         "type": "LARGE_PLANT",
-        "col": 28,
+        "col": 21,
         "row": 3
       },
       {
@@ -5972,7 +5966,7 @@
       {
         "uid": "lab1-chair1",
         "type": "WOODEN_CHAIR_BACK",
-        "col": 3,
+        "col": 2,
         "row": 6
       },
       {
@@ -6026,7 +6020,7 @@
       {
         "uid": "lab2-chair2",
         "type": "WOODEN_CHAIR_BACK",
-        "col": 17,
+        "col": 16,
         "row": 6
       },
       {
@@ -6068,26 +6062,26 @@
       {
         "uid": "lobby-table1",
         "type": "COFFEE_TABLE",
-        "col": 3,
+        "col": 2,
         "row": 17
       },
       {
         "uid": "lobby-table2",
         "type": "COFFEE_TABLE",
-        "col": 7,
+        "col": 6,
         "row": 17
       },
       {
         "uid": "lobby-bench1",
         "type": "CUSHIONED_BENCH",
-        "col": 13,
-        "row": 17
+        "col": 4,
+        "row": 7
       },
       {
         "uid": "lobby-bench2",
         "type": "CUSHIONED_BENCH",
-        "col": 14,
-        "row": 17
+        "col": 24,
+        "row": 21
       },
       {
         "uid": "lobby-plant1",
@@ -6116,26 +6110,26 @@
       {
         "uid": "lobby-coffee1",
         "type": "COFFEE",
-        "col": 4,
+        "col": 2,
         "row": 18
       },
       {
         "uid": "lobby-coffee2",
         "type": "COFFEE",
-        "col": 8,
+        "col": 6,
         "row": 18
       },
       {
         "uid": "lobby-bench5",
         "type": "WOODEN_BENCH",
-        "col": 11,
-        "row": 22
+        "col": 14,
+        "row": 7
       },
       {
         "uid": "lobby-bench6",
         "type": "WOODEN_BENCH",
-        "col": 12,
-        "row": 22
+        "col": 18,
+        "row": 7
       },
       {
         "uid": "analysis-desk1",
@@ -6152,13 +6146,13 @@
       {
         "uid": "analysis-chair1",
         "type": "WOODEN_CHAIR_BACK",
-        "col": 23,
+        "col": 22,
         "row": 20
       },
       {
         "uid": "analysis-chair2",
         "type": "WOODEN_CHAIR_BACK",
-        "col": 27,
+        "col": 28,
         "row": 20
       },
       {
@@ -6198,10 +6192,10 @@
         "row": 15
       },
       {
-        "type": "CUSHIONED_CHAIR_BACK",
+        "type": "CUSHIONED_CHAIR_FRONT",
         "uid": "exec-chair-pm",
-        "col": 25,
-        "row": 9
+        "col": 26,
+        "row": 6
       },
       {
         "uid": "f-1775783257542-9mrc",
@@ -6242,14 +6236,20 @@
       {
         "uid": "f-1776006556593-x2vp",
         "type": "CACTUS",
-        "col": 26,
-        "row": 6
+        "col": 29,
+        "row": 12
       },
       {
         "uid": "f-1776006568830-ek53",
         "type": "CACTUS",
         "col": 19,
         "row": 17
+      },
+      {
+        "uid": "f-1776127858370-6zrs",
+        "type": "WOODEN_BENCH",
+        "col": 26,
+        "row": 21
       }
     ]
   }
