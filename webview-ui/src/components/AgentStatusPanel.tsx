@@ -134,6 +134,7 @@ function AgentCard({
   subagentCharacters,
   history,
   deviceInfo,
+  nested,
 }: {
   id: number;
   officeState: OfficeState;
@@ -141,6 +142,8 @@ function AgentCard({
   subagentCharacters: SubagentCharacter[];
   history: HistoryEntry[];
   deviceInfo: Record<number, DeviceInfo>;
+  /** When true, card is rendered as a nested child (no border, compact padding) */
+  nested?: boolean;
 }) {
   const ch = officeState.characters.get(id);
   const [expanded, setExpanded] = useState(false);
@@ -173,8 +176,7 @@ function AgentCard({
   return (
     <div
       style={{
-        padding: '6px 10px',
-        borderBottom: '1px solid var(--color-border)',
+        padding: nested ? '4px 8px' : '6px 10px',
       }}
     >
       {/* Header: name + status + current activity */}
@@ -326,10 +328,17 @@ export function AgentStatusPanel({
   subagentCharacters,
   deviceInfo,
 }: AgentStatusPanelProps) {
-  const allIds = [...agents, ...subagentCharacters.map((s) => s.id)];
   const historyMap = useActivityHistory(agents, agentTools, subagentCharacters, officeState);
 
-  if (allIds.length === 0) return null;
+  if (agents.length === 0 && subagentCharacters.length === 0) return null;
+
+  // Group sub-agents by parentAgentId
+  const subsByParent = new Map<number, SubagentCharacter[]>();
+  for (const sub of subagentCharacters) {
+    const list = subsByParent.get(sub.parentAgentId) ?? [];
+    list.push(sub);
+    subsByParent.set(sub.parentAgentId, list);
+  }
 
   return (
     <div
@@ -355,17 +364,69 @@ export function AgentStatusPanel({
       >
         Agent Status
       </div>
-      {allIds.map((id) => (
-        <AgentCard
-          key={id}
-          id={id}
-          officeState={officeState}
-          agentTools={agentTools}
-          subagentCharacters={subagentCharacters}
-          history={historyMap.get(id) ?? []}
-          deviceInfo={deviceInfo}
-        />
-      ))}
+      {agents.map((parentId) => {
+        const children = subsByParent.get(parentId) ?? [];
+        return (
+          <div key={parentId} style={{ borderBottom: '1px solid var(--color-border)' }}>
+            <AgentCard
+              id={parentId}
+              officeState={officeState}
+              agentTools={agentTools}
+              subagentCharacters={subagentCharacters}
+              history={historyMap.get(parentId) ?? []}
+              deviceInfo={deviceInfo}
+            />
+            {children.length > 0 && (
+              <div
+                style={{
+                  marginLeft: 18,
+                  borderLeft: '2px solid var(--color-border)',
+                  marginBottom: 2,
+                }}
+              >
+                {children.map((sub, i) => {
+                  const isLast = i === children.length - 1;
+                  return (
+                    <div
+                      key={sub.id}
+                      style={{
+                        position: 'relative',
+                        // Cut the vertical border at the last child
+                        ...(isLast ? { borderLeft: '2px solid transparent', marginLeft: -2 } : {}),
+                      }}
+                    >
+                      {/* Tree connector: ├─ or └─ */}
+                      <span
+                        style={{
+                          position: 'absolute',
+                          left: isLast ? -2 : -2,
+                          top: 0,
+                          width: 12,
+                          height: 16,
+                          borderLeft: isLast ? '2px solid var(--color-border)' : 'none',
+                          borderBottom: '2px solid var(--color-border)',
+                          pointerEvents: 'none',
+                        }}
+                      />
+                      <div style={{ marginLeft: 12 }}>
+                        <AgentCard
+                          id={sub.id}
+                          officeState={officeState}
+                          agentTools={agentTools}
+                          subagentCharacters={subagentCharacters}
+                          history={historyMap.get(sub.id) ?? []}
+                          deviceInfo={deviceInfo}
+                          nested
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
