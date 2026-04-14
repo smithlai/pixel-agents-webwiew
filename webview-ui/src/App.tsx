@@ -234,11 +234,16 @@ function App() {
 
   const BOSS_ID = 100;
   const bossCommandLockRef = useRef(false);
+  const bossToolSeqRef = useRef(0);
   const handleBossCommand = useCallback((command: string, serial?: string) => {
     // Debounce: prevent rapid-fire task assignment
     if (bossCommandLockRef.current) return;
     bossCommandLockRef.current = true;
     setTimeout(() => { bossCommandLockRef.current = false; }, 2000);
+
+    // Unique toolId per command so rapid inputs don't collide
+    const seq = ++bossToolSeqRef.current;
+    const toolId = `boss-cmd-${seq}`;
 
     // Boss activates: walk to desk, type the command, then go idle
     window.dispatchEvent(
@@ -248,7 +253,7 @@ function App() {
     );
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'agentToolStart', id: BOSS_ID, toolId: 'boss-cmd', status: command },
+        data: { type: 'agentToolStart', id: BOSS_ID, toolId, status: command },
       }),
     );
     // Spawn real MobileGoose session if server supports it
@@ -271,7 +276,7 @@ function App() {
     setTimeout(() => {
       window.dispatchEvent(
         new MessageEvent('message', {
-          data: { type: 'agentToolDone', id: BOSS_ID, toolId: 'boss-cmd' },
+          data: { type: 'agentToolDone', id: BOSS_ID, toolId },
         }),
       );
       window.dispatchEvent(
