@@ -30,7 +30,12 @@ import { TESTRUN_PREFIX } from './deviceTypes.ts';
 import { sanitizeTestrun } from './heartbeatPaths.ts';
 
 const POLL_INTERVAL_MS = 15_000;
+
+// ⚠️  KEEP IN SYNC with MobileGoose/tools/goose-log-wrapper.py `STALE_THRESHOLD`.
+// Both values must match — if MobileGoose changes its orphan-cleanup window,
+// update this constant in the same cross-repo change (and vice versa).
 const STALE_MS = 180_000;
+
 const HEARTBEAT_SUFFIX = '.heartbeat';
 
 export interface HeartbeatWatchdogOptions {

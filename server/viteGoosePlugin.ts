@@ -253,6 +253,12 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
           console.log(`[GoosePlugin] Detected JSONL: ${file}`);
 
           // Extract serial from testrun in filename: goose-events-dev-{SERIAL}-{uuid8}.jsonl
+          // ⚠️  KEEP IN SYNC with MobileGoose/tools/goose-log-wrapper.py (main(), jsonl_path assignment).
+          // Filename produced by wrapper: `goose-events-{sanitize_testrun(testrun)}.jsonl`
+          // where testrun = "dev-{serial}-{uuid8}" passed via --testrun argument.
+          // 'dev' prefix = TESTRUN_PREFIX in deviceTypes.ts.
+          // If the wrapper changes its naming convention, update this regex and TESTRUN_PREFIX
+          // in the same cross-repo change.
           const match = path.basename(file).match(/^goose-events-dev-(.+)-[a-f0-9]{8}\.jsonl$/);
           if (match) {
             const serial = match[1];

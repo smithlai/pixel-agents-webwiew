@@ -10,6 +10,11 @@
  *   droidrun_action  → subagentToolStart  (sub-agent status text update)
  *   droidrun_result  → subagentClear      (sub-agent disappears)
  *   session_end      → agentStatus: idle  (Goose stands up, wanders)
+ *
+ * ⚠️  Event type strings KEEP IN SYNC with MobileGoose/tools/goose-log-wrapper.py.
+ * The wrapper writes these type strings into JSONL; this translator consumes them.
+ * If either side renames an event type, update both repos in the same cross-repo change.
+ * Canonical event types are also defined in gooseEvents.ts.
  */
 
 import type { GooseEvent } from './gooseEvents.ts';

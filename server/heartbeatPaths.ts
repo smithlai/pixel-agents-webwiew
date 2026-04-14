@@ -11,8 +11,14 @@
  */
 
 /**
- * Sanitize a testrun name for safe filesystem use.  Mirrors
- * MobileGoose's `sanitize_testrun()`:
+ * Sanitize a testrun name for safe filesystem use.
+ *
+ * ⚠️  KEEP IN SYNC with MobileGoose/tools/goose-log-wrapper.py `sanitize_testrun()`.
+ *     Both sides must produce identical output for the same input — any divergence
+ *     silently breaks heartbeat file matching.  If you change this regex, update
+ *     the Python counterpart in the same commit (and vice versa).
+ *
+ * Rules (must match Python exactly):
  *   1. replace any non-[A-Za-z0-9_.-] char with "_"
  *   2. collapse consecutive underscores
  *   3. strip leading/trailing underscores
