@@ -154,7 +154,8 @@ export function renderScene(
 
   // Characters
   for (const ch of characters) {
-    const sprites = getCharacterSprites(ch.palette, ch.hueShift);
+    const satShift = ch.isSubagent ? -80 : 0;
+    const sprites = getCharacterSprites(ch.palette, ch.hueShift, satShift);
     const spriteData = getCharacterSprite(ch, sprites);
     // Sitting offset: shift character down when seated so they visually sit in the chair
     const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
@@ -215,11 +216,13 @@ export function renderScene(
       const mDrawY = drawY;
       const mDstW = dstW;
       const mDstH = dstH;
+      const mGrayscale = ch.isSubagent;
       drawables.push({
         zY: charZY,
         draw: (c) => {
           c.imageSmoothingEnabled = true;
           c.imageSmoothingQuality = 'high';
+          if (mGrayscale) c.filter = 'grayscale(80%)';
           if (mirror) {
             c.save();
             c.translate(mDrawX + mDstW, mDrawY);
@@ -229,6 +232,7 @@ export function renderScene(
           } else {
             c.drawImage(fc, 0, 0, fc.width, fc.height, mDrawX, mDrawY, mDstW, mDstH);
           }
+          if (mGrayscale) c.filter = 'none';
           c.imageSmoothingEnabled = false;
         },
       });

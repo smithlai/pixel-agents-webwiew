@@ -89,8 +89,8 @@ export interface CharacterSprites {
 const spriteCache = new Map<string, CharacterSprites>();
 
 /** Apply hue shift to every sprite in a CharacterSprites set */
-function hueShiftSprites(sprites: CharacterSprites, hueShift: number): CharacterSprites {
-  const color: ColorValue = { h: hueShift, s: 0, b: 0, c: 0 };
+function hueShiftSprites(sprites: CharacterSprites, hueShift: number, satShift = 0): CharacterSprites {
+  const color: ColorValue = { h: hueShift, s: satShift, b: 0, c: 0 };
   const shift = (s: SpriteData) => adjustSprite(s, color);
   const shiftWalk = (
     arr: [SpriteData, SpriteData, SpriteData, SpriteData],
@@ -135,8 +135,8 @@ function emptySprite(w: number, h: number): SpriteData {
   return rows;
 }
 
-export function getCharacterSprites(paletteIndex: number, hueShift = 0): CharacterSprites {
-  const cacheKey = `${paletteIndex}:${hueShift}`;
+export function getCharacterSprites(paletteIndex: number, hueShift = 0, satShift = 0): CharacterSprites {
+  const cacheKey = `${paletteIndex}:${hueShift}:${satShift}`;
   const cached = spriteCache.get(cacheKey);
   if (cached) return cached;
 
@@ -197,9 +197,9 @@ export function getCharacterSprites(paletteIndex: number, hueShift = 0): Charact
     };
   }
 
-  // Apply hue shift if non-zero
-  if (hueShift !== 0) {
-    sprites = hueShiftSprites(sprites, hueShift);
+  // Apply hue / saturation shift if non-zero
+  if (hueShift !== 0 || satShift !== 0) {
+    sprites = hueShiftSprites(sprites, hueShift, satShift);
   }
 
   spriteCache.set(cacheKey, sprites);

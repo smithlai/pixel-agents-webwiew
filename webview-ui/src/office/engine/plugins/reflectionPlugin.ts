@@ -127,6 +127,7 @@ function render(rctx: RenderContext): void {
       off.scale(1, -1);
       off.imageSmoothingEnabled = true;
       off.imageSmoothingQuality = 'high';
+      if (char.isSubagent) off.filter = 'grayscale(80%)';
       if (mirror) {
         off.save();
         off.translate(drawX + dstW, drawY);
@@ -136,10 +137,12 @@ function render(rctx: RenderContext): void {
       } else {
         off.drawImage(fc, 0, 0, fc.width, fc.height, drawX, drawY, dstW, dstH);
       }
+      if (char.isSubagent) off.filter = 'none';
       off.restore();
     } else {
       // Route A: SpriteData cached sprite path
-      const sprites = getCharacterSprites(char.palette, char.hueShift);
+      const satShift = char.isSubagent ? -80 : 0;
+      const sprites = getCharacterSprites(char.palette, char.hueShift, satShift);
       const spriteData = getCharacterSprite(char, sprites);
       const cached = getCachedSprite(spriteData, zoom);
       const drawX = Math.round(offsetX + char.x * zoom - cached.width / 2);
