@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { CHARACTER_SITTING_OFFSET_PX, TOOL_OVERLAY_VERTICAL_OFFSET } from '../../constants.js';
 import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js';
@@ -64,6 +64,10 @@ export function ToolOverlay({
     return () => cancelAnimationFrame(rafId);
   }, []);
 
+  // Track when activity text last changed per agent — hide after 5s of no update
+  const activityTimestampRef = useRef<Map<number, { text: string; shownAt: number }>>(new Map());
+  const ACTIVITY_AUTO_HIDE_MS = 5000;
+
   const el = containerRef.current;
   if (!el) return null;
   const rect = el.getBoundingClientRect();
@@ -103,6 +107,7 @@ export function ToolOverlay({
 
         // Get activity text
         const subHasPermission = isSub && ch.bubbleType === 'permission';
+        const nowMs = Date.now();
         let activityText: string;
         if (isSub) {
           if (subHasPermission) {
@@ -114,6 +119,15 @@ export function ToolOverlay({
         } else {
           activityText = getActivityText(id, agentTools, ch.isActive);
         }
+
+        // Track activity text changes — reset timer when text changes (ignore Idle)
+        const prevEntry = activityTimestampRef.current.get(id);
+        const isMeaningfulText = activityText !== 'Idle';
+        if (isMeaningfulText && (!prevEntry || prevEntry.text !== activityText)) {
+          activityTimestampRef.current.set(id, { text: activityText, shownAt: nowMs });
+        }
+        const shownAt = activityTimestampRef.current.get(id)?.shownAt ?? 0;
+        const showActivityText = isMeaningfulText && nowMs - shownAt < ACTIVITY_AUTO_HIDE_MS;
 
         // Determine dot color
         const tools = agentTools[id];
@@ -197,7 +211,7 @@ export function ToolOverlay({
                     color: ch.folderName ? 'var(--color-text-muted)' : 'var(--vscode-foreground, var(--color-text))',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
-                    display: 'block',
+                    display: showActivityText ? 'block' : 'none',
                   }}
                 >
                   {activityText}

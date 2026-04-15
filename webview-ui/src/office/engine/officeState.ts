@@ -6,6 +6,7 @@ import {
   CHARACTER_SITTING_OFFSET_PX,
   DISMISS_BUBBLE_FAST_FADE_SEC,
   FURNITURE_ANIM_INTERVAL_SEC,
+  PERMISSION_BUBBLE_DURATION_SEC,
   HUE_SHIFT_MIN_DEG,
   HUE_SHIFT_RANGE_DEG,
   INACTIVE_SEAT_TIMER_MIN_SEC,
@@ -745,7 +746,7 @@ export class OfficeState {
     const ch = this.characters.get(id);
     if (ch) {
       ch.bubbleType = 'permission';
-      ch.bubbleTimer = 0;
+      ch.bubbleTimer = PERMISSION_BUBBLE_DURATION_SEC;
     }
   }
 
@@ -811,8 +812,8 @@ export class OfficeState {
         updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles),
       );
 
-      // Tick bubble timer for waiting bubbles
-      if (ch.bubbleType === 'waiting') {
+      // Tick bubble timer (both permission and waiting auto-fade)
+      if (ch.bubbleType && ch.bubbleTimer > 0) {
         ch.bubbleTimer -= dt;
         if (ch.bubbleTimer <= 0) {
           ch.bubbleType = null;
