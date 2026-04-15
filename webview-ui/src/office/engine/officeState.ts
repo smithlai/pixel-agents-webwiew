@@ -568,6 +568,41 @@ export class OfficeState {
     }
   }
 
+  /**
+   * Invariant enforcement: sub-agents cannot outlive their parent's active state.
+   * If the parent is missing or idle, the sub-agent is orphaned and must despawn.
+   * Called every frame in update() as a safety net for crash/disconnect scenarios
+   * where cleanup events (droidrun_result, subagentClear) never arrive.
+   */
+  private reapOrphanedSubagents(): void {
+    const orphanKeys: string[] = [];
+    for (const [key, subId] of this.subagentIdMap) {
+      const meta = this.subagentMeta.get(subId);
+      if (!meta) { orphanKeys.push(key); continue; }
+      const parent = this.characters.get(meta.parentAgentId);
+      if (parent && parent.isActive) continue;
+      // Parent is missing or idle — this sub-agent is orphaned
+      orphanKeys.push(key);
+      const ch = this.characters.get(subId);
+      if (ch && ch.matrixEffect !== 'despawn') {
+        if (ch.seatId) {
+          const seat = this.seats.get(ch.seatId);
+          if (seat) seat.assigned = false;
+        }
+        ch.matrixEffect = 'despawn';
+        ch.matrixEffectTimer = 0;
+        ch.matrixEffectSeeds = matrixEffectSeeds();
+        ch.bubbleType = null;
+      }
+      this.subagentMeta.delete(subId);
+      if (this.selectedAgentId === subId) this.selectedAgentId = null;
+      if (this.cameraFollowId === subId) this.cameraFollowId = null;
+    }
+    for (const key of orphanKeys) {
+      this.subagentIdMap.delete(key);
+    }
+  }
+
   /** Look up the sub-agent character ID for a given parent+toolId, or null */
   getSubagentId(parentAgentId: number, parentToolId: string): number | null {
     return this.subagentIdMap.get(`${parentAgentId}:${parentToolId}`) ?? null;
@@ -785,6 +820,12 @@ export class OfficeState {
         }
       }
     }
+
+    // Reap orphaned sub-agents whose parent is gone or no longer active.
+    // This is the safety net for crash/disconnect scenarios where the
+    // droidrun_result event never arrives to clean up the sub-agent.
+    this.reapOrphanedSubagents();
+
     // Remove characters that finished despawn
     for (const id of toDelete) {
       this.characters.delete(id);

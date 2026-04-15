@@ -56,14 +56,16 @@ export class GooseWatcher {
       fs.mkdirSync(this.watchDir, { recursive: true });
     }
 
-    // Scan for existing files
-    this.scanForFiles();
+    // Scan for existing files — skip their content so we don't replay
+    // stale sessions from before this server process started.
+    this.scanForFiles(true);
 
     // fs.watch for new file detection
     try {
       this.fsWatcher = fs.watch(this.watchDir, (_eventType, filename) => {
         if (filename && this.isGooseEventFile(filename)) {
           const filePath = path.join(this.watchDir, filename);
+          // New files appearing after startup are fresh sessions — read from beginning
           this.ensureWatching(filePath);
         }
         // Also read new lines on any change
@@ -106,12 +108,12 @@ export class GooseWatcher {
     return filename.startsWith('goose-events-') && filename.endsWith('.jsonl');
   }
 
-  private scanForFiles(): void {
+  private scanForFiles(skipExisting = false): void {
     try {
       const files = fs.readdirSync(this.watchDir);
       for (const f of files) {
         if (this.isGooseEventFile(f)) {
-          this.ensureWatching(path.join(this.watchDir, f));
+          this.ensureWatching(path.join(this.watchDir, f), skipExisting);
         }
       }
     } catch {
@@ -119,20 +121,34 @@ export class GooseWatcher {
     }
   }
 
-  private ensureWatching(filePath: string): void {
+  private ensureWatching(filePath: string, skipExisting = false): void {
     if (this.watchedFiles.has(filePath)) return;
+
+    // When skipExisting is true, seek to end-of-file so we only process
+    // new events written after the server started.  This prevents replaying
+    // stale sessions (e.g. after a crash where session_end was never written).
+    let offset = 0;
+    if (skipExisting) {
+      try {
+        offset = fs.statSync(filePath).size;
+      } catch {
+        // File may have disappeared between scan and stat — start from 0
+      }
+    }
 
     this.watchedFiles.set(filePath, {
       filePath,
-      offset: 0,
+      offset,
       lineBuffer: '',
     });
 
     this.onFileFound?.(filePath);
-    console.log(`[GooseWatcher] Now watching: ${path.basename(filePath)}`);
+    console.log(`[GooseWatcher] Now watching: ${path.basename(filePath)}${skipExisting ? ' (skipped existing content)' : ''}`);
 
-    // Read any existing content
-    this.readNewLines(filePath);
+    // Only read existing content when not skipping
+    if (!skipExisting) {
+      this.readNewLines(filePath);
+    }
   }
 
   private readAllFiles(): void {

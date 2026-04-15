@@ -161,6 +161,16 @@ export class EventTranslator {
         break;
 
       case 'session_end': {
+        // Clear any lingering DroidRun sub-agents first — if Goose ended
+        // without emitting droidrun_result (crash, timeout, etc.), the
+        // sub-agent characters would otherwise remain as phantoms.
+        for (const parentToolId of this.activeDroidruns.keys()) {
+          messages.push({
+            type: 'subagentClear',
+            id: this.agentId,
+            parentToolId: `dr-${parentToolId}`,
+          });
+        }
         // Clear all tools and go idle
         messages.push(
           { type: 'agentToolsClear', id: this.agentId },
