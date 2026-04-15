@@ -5925,7 +5925,7 @@
         "uid": "exec-pc2",
         "type": "PC_SIDE:left",
         "col": 24,
-        "row": 12
+        "row": 11
       },
       {
         "uid": "exec-plant",
@@ -5943,150 +5943,126 @@
         "uid": "exec-table",
         "type": "SMALL_TABLE_SIDE",
         "col": 24,
-        "row": 11
+        "row": 12
       },
       {
         "uid": "exec-coffee",
         "type": "COFFEE",
         "col": 24,
-        "row": 12
+        "row": 13
       },
       {
         "uid": "lab1-desk1",
-        "type": "DESK_FRONT",
-        "col": 2,
+        "type": "DESK_SIDE",
+        "col": 19,
         "row": 5
       },
       {
         "uid": "lab1-desk2",
-        "type": "DESK_FRONT",
-        "col": 6,
-        "row": 5
+        "type": "DESK_SIDE",
+        "col": 19,
+        "row": 8
       },
       {
         "uid": "lab1-chair1",
-        "type": "WOODEN_CHAIR_BACK",
-        "col": 2,
-        "row": 6
+        "type": "WOODEN_CHAIR_SIDE",
+        "col": 18,
+        "row": 9
       },
       {
         "uid": "lab1-chair2",
-        "type": "WOODEN_CHAIR_BACK",
-        "col": 6,
-        "row": 6
+        "type": "WOODEN_CHAIR_SIDE:left",
+        "col": 12,
+        "row": 9
       },
       {
         "uid": "lab1-pc1",
-        "type": "PC_FRONT_OFF",
-        "col": 2,
-        "row": 5
+        "type": "PC_SIDE:left",
+        "col": 11,
+        "row": 9
       },
       {
         "uid": "lab1-pc2",
-        "type": "PC_FRONT_OFF",
-        "col": 4,
-        "row": 5
+        "type": "PC_SIDE:left",
+        "col": 11,
+        "row": 6
       },
       {
         "uid": "lab1-pc3",
-        "type": "PC_FRONT_OFF",
-        "col": 6,
-        "row": 5
+        "type": "PC_SIDE",
+        "col": 19,
+        "row": 9
       },
       {
         "uid": "lab1-pc4",
-        "type": "PC_FRONT_OFF",
-        "col": 8,
-        "row": 5
+        "type": "PC_SIDE",
+        "col": 19,
+        "row": 6
       },
       {
         "uid": "lab2-desk1",
-        "type": "DESK_FRONT",
-        "col": 12,
-        "row": 5
+        "type": "DESK_SIDE",
+        "col": 11,
+        "row": 8
       },
       {
         "uid": "lab2-desk2",
-        "type": "DESK_FRONT",
-        "col": 16,
+        "type": "DESK_SIDE",
+        "col": 11,
         "row": 5
       },
       {
         "uid": "lab2-chair1",
-        "type": "WOODEN_CHAIR_BACK",
+        "type": "WOODEN_CHAIR_SIDE:left",
         "col": 12,
         "row": 6
       },
       {
-        "uid": "lab2-chair2",
-        "type": "WOODEN_CHAIR_BACK",
-        "col": 16,
-        "row": 6
-      },
-      {
-        "uid": "lab2-pc4",
-        "type": "PC_FRONT_OFF",
-        "col": 18,
-        "row": 5
-      },
-      {
         "uid": "lab2-plant",
         "type": "PLANT",
-        "col": 19,
+        "col": 9,
         "row": 10
       },
       {
         "uid": "lobby-sofa1",
         "type": "SOFA_FRONT",
         "col": 2,
-        "row": 16
+        "row": 17
       },
       {
         "uid": "lobby-sofa2",
         "type": "SOFA_FRONT",
         "col": 6,
-        "row": 16
+        "row": 17
       },
       {
         "uid": "lobby-sofa3",
         "type": "SOFA_BACK",
         "col": 2,
-        "row": 19
+        "row": 20
       },
       {
         "uid": "lobby-sofa4",
         "type": "SOFA_BACK",
         "col": 6,
-        "row": 19
+        "row": 20
       },
       {
         "uid": "lobby-table1",
         "type": "COFFEE_TABLE",
         "col": 2,
-        "row": 17
+        "row": 18
       },
       {
         "uid": "lobby-table2",
         "type": "COFFEE_TABLE",
         "col": 6,
-        "row": 17
-      },
-      {
-        "uid": "lobby-bench1",
-        "type": "CUSHIONED_BENCH",
-        "col": 4,
-        "row": 7
-      },
-      {
-        "uid": "lobby-bench2",
-        "type": "CUSHIONED_BENCH",
-        "col": 24,
-        "row": 21
+        "row": 18
       },
       {
         "uid": "lobby-plant1",
         "type": "LARGE_PLANT",
-        "col": 1,
+        "col": 11,
         "row": 11
       },
       {
@@ -6098,8 +6074,8 @@
       {
         "uid": "lobby-plant4",
         "type": "LARGE_PLANT",
-        "col": 17,
-        "row": 22
+        "col": 18,
+        "row": 23
       },
       {
         "uid": "lobby-plant5",
@@ -6110,86 +6086,62 @@
       {
         "uid": "lobby-coffee1",
         "type": "COFFEE",
-        "col": 2,
-        "row": 18
+        "col": 6,
+        "row": 19
       },
       {
         "uid": "lobby-coffee2",
         "type": "COFFEE",
-        "col": 6,
-        "row": 18
-      },
-      {
-        "uid": "lobby-bench5",
-        "type": "WOODEN_BENCH",
-        "col": 14,
-        "row": 7
-      },
-      {
-        "uid": "lobby-bench6",
-        "type": "WOODEN_BENCH",
-        "col": 18,
-        "row": 7
+        "col": 10,
+        "row": 19
       },
       {
         "uid": "analysis-desk1",
-        "type": "DESK_FRONT",
-        "col": 22,
-        "row": 19
+        "type": "DESK_SIDE",
+        "col": 21,
+        "row": 22
       },
       {
         "uid": "analysis-desk2",
-        "type": "DESK_FRONT",
-        "col": 26,
-        "row": 19
+        "type": "DESK_SIDE",
+        "col": 29,
+        "row": 22
       },
       {
         "uid": "analysis-chair1",
-        "type": "WOODEN_CHAIR_BACK",
+        "type": "WOODEN_CHAIR_SIDE:left",
         "col": 22,
-        "row": 20
+        "row": 23
       },
       {
         "uid": "analysis-chair2",
-        "type": "WOODEN_CHAIR_BACK",
+        "type": "WOODEN_CHAIR_SIDE",
         "col": 28,
-        "row": 20
+        "row": 23
       },
       {
         "uid": "analysis-pc1",
-        "type": "PC_FRONT_OFF",
-        "col": 22,
-        "row": 19
-      },
-      {
-        "uid": "analysis-pc2",
-        "type": "PC_FRONT_OFF",
-        "col": 24,
-        "row": 19
-      },
-      {
-        "uid": "analysis-pc3",
-        "type": "PC_FRONT_OFF",
-        "col": 26,
-        "row": 19
+        "type": "PC_SIDE:left",
+        "col": 21,
+        "row": 23
       },
       {
         "uid": "analysis-pc4",
-        "type": "PC_FRONT_OFF",
-        "col": 28,
-        "row": 19
+        "type": "PC_SIDE",
+        "col": 29,
+        "row": 23
       },
       {
         "uid": "analysis-whiteboard",
         "type": "WHITEBOARD",
-        "col": 26,
-        "row": 14
+        "col": 16,
+        "row": 3
       },
       {
         "uid": "analysis-bookshelf",
         "type": "BOOKSHELF",
-        "col": 21,
-        "row": 15
+        "col": 18,
+        "row": 4
       },
       {
         "type": "CUSHIONED_CHAIR_FRONT",
@@ -6198,39 +6150,21 @@
         "row": 6
       },
       {
-        "uid": "f-1775783257542-9mrc",
-        "type": "LED_PANEL_FRONT_OFF",
-        "col": 16,
-        "row": 5
-      },
-      {
-        "uid": "f-1775784884379-toaa",
-        "type": "LED_PANEL_FRONT_OFF",
-        "col": 14,
-        "row": 5
-      },
-      {
-        "uid": "f-1775784897609-jz9t",
-        "type": "LED_PANEL_FRONT_OFF",
-        "col": 12,
-        "row": 5
-      },
-      {
         "uid": "f-1775812008205-jqd6",
-        "type": "WOODEN_CHAIR_BACK",
-        "col": 8,
+        "type": "WOODEN_CHAIR_SIDE",
+        "col": 18,
         "row": 6
       },
       {
         "uid": "f-1776004180452-y811",
         "type": "CACTUS",
-        "col": 8,
+        "col": 18,
         "row": 12
       },
       {
         "uid": "f-1776004196330-xy1h",
         "type": "CACTUS",
-        "col": 12,
+        "col": 2,
         "row": 12
       },
       {
@@ -6246,10 +6180,124 @@
         "row": 17
       },
       {
-        "uid": "f-1776127858370-6zrs",
-        "type": "WOODEN_BENCH",
-        "col": 26,
-        "row": 21
+        "uid": "f-1776172435310-1auv",
+        "type": "ROBOT_ARM",
+        "col": 1,
+        "row": 5
+      },
+      {
+        "uid": "f-1776172451292-838a",
+        "type": "ROBOT_ARM_LARGE",
+        "col": 21,
+        "row": 9
+      },
+      {
+        "uid": "f-1776172672581-ura3",
+        "type": "ROBOT_ARM",
+        "col": 1,
+        "row": 8
+      },
+      {
+        "uid": "f-1776173066360-inuw",
+        "type": "SURVEILLANCE_WALL",
+        "col": 7,
+        "row": 4
+      },
+      {
+        "uid": "f-1776173383169-8xdj",
+        "type": "SURVEILLANCE_WALL",
+        "col": 21,
+        "row": 17
+      },
+      {
+        "uid": "f-1776173385941-zzhz",
+        "type": "SURVEILLANCE_WALL",
+        "col": 21,
+        "row": 15
+      },
+      {
+        "uid": "f-1776173399754-6bwb",
+        "type": "SURVEILLANCE_WALL",
+        "col": 27,
+        "row": 15
+      },
+      {
+        "uid": "f-1776173401065-0qdq",
+        "type": "SURVEILLANCE_WALL",
+        "col": 24,
+        "row": 15
+      },
+      {
+        "uid": "f-1776173411694-tepm",
+        "type": "SURVEILLANCE_WALL",
+        "col": 27,
+        "row": 17
+      },
+      {
+        "uid": "f-1776173803361-mq1r",
+        "type": "BOOKSHELF",
+        "col": 11,
+        "row": 4
+      },
+      {
+        "uid": "f-1776173808502-dez4",
+        "type": "WHITEBOARD",
+        "col": 13,
+        "row": 3
+      },
+      {
+        "uid": "f-1776175196343-5xh1",
+        "type": "SMALL_TABLE_SIDE",
+        "col": 24,
+        "row": 10
+      },
+      {
+        "uid": "f-1776175256552-c0l6",
+        "type": "WHITEBOARD",
+        "col": 3,
+        "row": 3
+      },
+      {
+        "uid": "f-1776175258056-a6dq",
+        "type": "WHITEBOARD",
+        "col": 5,
+        "row": 3
+      },
+      {
+        "uid": "f-1776175317831-afls",
+        "type": "DESK_FRONT",
+        "col": 27,
+        "row": 20
+      },
+      {
+        "uid": "f-1776175815020-jykg",
+        "type": "COFFEE_TABLE",
+        "col": 10,
+        "row": 18
+      },
+      {
+        "uid": "f-1776175819165-weos",
+        "type": "SOFA_FRONT",
+        "col": 10,
+        "row": 17
+      },
+      {
+        "uid": "f-1776175820177-qaec",
+        "type": "SOFA_BACK",
+        "col": 10,
+        "row": 20
+      },
+      {
+        "uid": "f-1776175889619-nhii",
+        "type": "BIN",
+        "col": 3,
+        "row": 10
+      },
+      {
+        "uid": "f-1776175893737-a7db",
+        "type": "BIN",
+        "col": 3,
+        "row": 7
       }
     ]
   }
