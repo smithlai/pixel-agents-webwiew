@@ -129,6 +129,11 @@ export function ToolOverlay({
         const shownAt = activityTimestampRef.current.get(id)?.shownAt ?? 0;
         const showActivityText = isMeaningfulText && nowMs - shownAt < ACTIVITY_AUTO_HIDE_MS;
 
+        // Permanent display name — separate from the temporary activity text
+        const displayName = isSub
+          ? (subagentCharacters.find((s) => s.id === id)?.name ?? 'Subtask')
+          : (ch.folderName ?? `Agent ${id}`);
+
         // Determine dot color
         const tools = agentTools[id];
         const hasPermission = subHasPermission || tools?.some((t) => t.permissionWait && !t.done);
@@ -154,11 +159,32 @@ export function ToolOverlay({
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
+              gap: 2,
               pointerEvents: isSelected ? 'auto' : 'none',
               opacity: alwaysShowOverlay && !isSelected && !isHovered ? (isSub ? 0.5 : 0.75) : 1,
               zIndex: isSelected ? 'var(--pixel-overlay-selected-z)' : 'var(--pixel-overlay-z)',
             }}
           >
+            {/* Activity bubble — auto-hides 5s after last change */}
+            {showActivityText && (
+              <div
+                style={{
+                  background: 'rgba(10, 10, 20, 0.72)',
+                  border: '1px solid var(--color-border)',
+                  padding: '2px 7px',
+                  maxWidth: 240,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontSize: '10px',
+                  color: 'var(--color-text)',
+                  boxShadow: 'var(--shadow-pixel)',
+                }}
+              >
+                {activityText}
+              </div>
+            )}
+            {/* Name tag — permanent */}
             <div
               style={{
                 display: 'flex',
@@ -187,36 +213,20 @@ export function ToolOverlay({
                   }}
                 />
               )}
-              <div style={{ overflow: 'hidden' }}>
-                {ch.folderName && (
-                  <span
-                    style={{
-                      fontSize: isSub ? '11px' : '12px',
-                      lineHeight: 1.3,
-                      fontStyle: isSub ? 'italic' : undefined,
-                      color: 'var(--vscode-foreground, var(--color-text))',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: 'block',
-                    }}
-                  >
-                    {ch.folderName}
-                  </span>
-                )}
-                <span
-                  style={{
-                    fontSize: ch.folderName ? '10px' : (isSub ? '11px' : '12px'),
-                    lineHeight: 1.3,
-                    fontStyle: isSub ? 'italic' : undefined,
-                    color: ch.folderName ? 'var(--color-text-muted)' : 'var(--vscode-foreground, var(--color-text))',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    display: showActivityText ? 'block' : 'none',
-                  }}
-                >
-                  {activityText}
-                </span>
-              </div>
+              <span
+                style={{
+                  fontSize: isSub ? '11px' : '12px',
+                  lineHeight: 1.3,
+                  fontStyle: isSub ? 'italic' : undefined,
+                  color: 'var(--vscode-foreground, var(--color-text))',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: 'block',
+                  maxWidth: 180,
+                }}
+              >
+                {displayName}
+              </span>
               {isSelected && !isSub && (
                 <button
                   onClick={(e) => {
