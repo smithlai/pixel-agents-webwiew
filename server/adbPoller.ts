@@ -25,6 +25,7 @@ export class AdbPoller {
   /** Start polling. Resolves after the first poll completes so callers
    *  can await device availability before accepting connections. */
   async start(): Promise<void> {
+    await this.ensureAdbServer();
     await this.pollAsync();
     this.timer = setInterval(() => this.poll(), this.intervalMs);
   }
@@ -34,6 +35,23 @@ export class AdbPoller {
       clearInterval(this.timer);
       this.timer = null;
     }
+  }
+
+  /** Ensure the ADB daemon is running before the first poll.
+   *  `adb devices` can implicitly start the server but may be too slow
+   *  on the very first invocation (cold boot), causing a timeout.
+   *  A dedicated `adb start-server` is more reliable. */
+  private ensureAdbServer(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      child_process.exec('adb start-server', { timeout: 15000 }, (err) => {
+        if (err) {
+          console.warn('[AdbPoller] adb start-server failed — ADB may not be installed');
+        } else {
+          console.log('[AdbPoller] ADB server ensured running');
+        }
+        resolve(); // Always resolve — poll will retry or mark missing
+      });
+    });
   }
 
   /** Promise-based first poll — ensures device list is populated before
