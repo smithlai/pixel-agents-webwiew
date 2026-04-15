@@ -124,11 +124,6 @@ export default defineConfig(({ mode }) => {
       browserMockAssetsPlugin(),
       ...(gooseWatchDir ? [goosePlugin({ watchDir: gooseWatchDir, mobileGooseDir: mobileGooseDir || undefined })] : []),
     ],
-    // Node.js-only packages used in server-side Vite plugins / loaders —
-    // tell Vite not to try resolving them as client modules.
-    ssr: {
-      external: ['ws', 'pngjs'],
-    },
     build: {
       outDir: '../dist/webview',
       emptyOutDir: true,

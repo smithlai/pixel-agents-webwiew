@@ -8,6 +8,9 @@
 ## 快速啟動
 
 ```bash
+# 第一次設定：根目錄也需要安裝（供 Vite config 的 pngjs / ws 解析用）
+npm install
+
 cd webview-ui
 npm install
 npm run dev
@@ -15,6 +18,11 @@ npm run dev
 ```
 
 不需要 VS Code。啟動後自動載入 mock 資料（5 個 Agent 的完整 demo 動畫）。
+
+> **為何需要根目錄 `npm install`？**
+> `vite.config.ts` 透過 Vite plugin 引用了 `../server/` 與 `../shared/assets/` 的程式碼，
+> 這些目錄的模組解析路徑不包含 `webview-ui/node_modules/`。
+> 根目錄安裝 `pngjs` / `ws` 後，esbuild 靜態分析就能正確解析，消除啟動時的 `[UNRESOLVED_IMPORT]` 警告。
 
 ## 連接真實 Goose 事件串流
 
