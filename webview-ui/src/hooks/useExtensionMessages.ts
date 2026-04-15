@@ -520,12 +520,22 @@ export function useExtensionMessages(
         // Boss assigned a task to a device Tester
         const agentId = msg.agentId as number;
         os.setAgentActive(agentId, true);
+        setDeviceInfo((prev) => {
+          const cur = prev[agentId];
+          if (!cur || cur.state === 'active') return prev;
+          return { ...prev, [agentId]: { ...cur, state: 'active' } };
+        });
       } else if (msg.type === 'task-stopped') {
         // Task completed or was stopped
         const agentId = msg.agentId as number;
         os.setAgentActive(agentId, false);
         os.setAgentTool(agentId, null);
         os.clearPermissionBubble(agentId);
+        setDeviceInfo((prev) => {
+          const cur = prev[agentId];
+          if (!cur || cur.state === 'idle') return prev;
+          return { ...prev, [agentId]: { ...cur, state: 'idle' } };
+        });
         // Remove sub-agents of this Tester
         os.removeAllSubagents(agentId);
         setSubagentCharacters((prev) => prev.filter((s) => s.parentAgentId !== agentId));
