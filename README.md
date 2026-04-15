@@ -11,8 +11,15 @@
 # 第一次設定：根目錄也需要安裝（供 Vite config 的 pngjs / ws 解析用）
 npm install
 
+# 安裝vitest
+cd server
+npm install
+cd ..
+# 安裝web相關套件
 cd webview-ui
 npm install
+
+# 啟動
 npm run dev
 # 瀏覽器開啟 http://localhost:5173
 ```
