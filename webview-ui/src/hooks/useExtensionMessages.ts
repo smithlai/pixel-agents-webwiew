@@ -386,6 +386,18 @@ export function useExtensionMessages(
       } else if (msg.type === 'subagentClear') {
         const id = msg.id as number;
         const parentToolId = msg.parentToolId as string;
+        const status = msg.status as string;
+        setAgentTools((prev) => {
+          const list = prev[id];
+          if (!list) return prev;
+          return {
+            ...prev,
+            [id]: list.map((t) =>
+              t.toolId === parentToolId ? { ...t, status, done: true } : t,
+            ),
+          };
+        });
+        
         setSubagentTools((prev) => {
           const agentSubs = prev[id];
           if (!agentSubs || !(parentToolId in agentSubs)) return prev;

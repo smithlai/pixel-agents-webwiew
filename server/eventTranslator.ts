@@ -152,6 +152,7 @@ export class EventTranslator {
           type: 'subagentClear',
           id: this.agentId,
           parentToolId: `dr-${event.parentToolId}`,
+          status: `DroidRun Result: (${event.success ? 'SUCCESS' : 'FAILED'}) ${event.message}`,
         });
         break;
       }

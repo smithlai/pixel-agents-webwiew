@@ -293,9 +293,9 @@ function AgentCard({
               </span>
               <span
                 style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'anywhere',
                 }}
               >
                 {entry.text}
