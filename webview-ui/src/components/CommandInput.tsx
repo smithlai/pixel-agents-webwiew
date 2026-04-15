@@ -1,12 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
 
 import type { DeviceInfo } from '../hooks/useExtensionMessages.js';
+import type { OfficeState } from '../office/engine/officeState.js';
 
 interface CommandInputProps {
   /** 送出指令時觸發（command + optional serial） */
   onSubmit: (command: string, serial?: string) => void;
   /** 目前偵測到的裝置清單（agentId → DeviceInfo） */
   deviceInfo: Record<number, DeviceInfo>;
+  /** 角色單一真相來源，用來判斷目前是否忙碌 */
+  officeState: OfficeState;
 }
 
 const containerStyle: React.CSSProperties = {
@@ -63,12 +66,15 @@ const selectStyle: React.CSSProperties = {
   maxWidth: 160,
 };
 
-export function CommandInput({ onSubmit, deviceInfo }: CommandInputProps) {
+export function CommandInput({ onSubmit, deviceInfo, officeState }: CommandInputProps) {
   const [value, setValue] = useState('');
   const [selectedSerial, setSelectedSerial] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const devices = Object.values(deviceInfo);
+  const devices = Object.entries(deviceInfo).map(([agentId, info]) => ({
+    agentId: Number(agentId),
+    ...info,
+  }));
 
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim();
@@ -103,8 +109,12 @@ export function CommandInput({ onSubmit, deviceInfo }: CommandInputProps) {
         >
           <option value="">自動分配</option>
           {devices.map((d) => (
-            <option key={d.serial} value={d.serial} disabled={d.state === 'active'}>
-              {d.model}{d.state === 'active' ? ' (忙碌)' : ''}
+            <option
+              key={d.serial}
+              value={d.serial}
+              disabled={officeState.characters.get(d.agentId)?.isActive === true}
+            >
+              {d.model}{officeState.characters.get(d.agentId)?.isActive === true ? ' (忙碌)' : ''}
             </option>
           ))}
         </select>

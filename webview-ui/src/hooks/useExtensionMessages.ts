@@ -51,7 +51,6 @@ export interface WorkspaceFolder {
 export interface DeviceInfo {
   serial: string;
   model: string;
-  state: string;
 }
 
 export interface ExtensionMessageState {
@@ -464,7 +463,6 @@ export function useExtensionMessages(
           serial: string;
           model: string;
           agentId: number;
-          state: string;
         }>;
         const deviceIds = new Set(devices.map(d => d.agentId));
 
@@ -472,7 +470,7 @@ export function useExtensionMessages(
         setDeviceInfo(() => {
           const next: Record<number, DeviceInfo> = {};
           for (const d of devices) {
-            next[d.agentId] = { serial: d.serial, model: d.model, state: d.state };
+            next[d.agentId] = { serial: d.serial, model: d.model };
           }
           return next;
         });
@@ -520,22 +518,12 @@ export function useExtensionMessages(
         // Boss assigned a task to a device Tester
         const agentId = msg.agentId as number;
         os.setAgentActive(agentId, true);
-        setDeviceInfo((prev) => {
-          const cur = prev[agentId];
-          if (!cur || cur.state === 'active') return prev;
-          return { ...prev, [agentId]: { ...cur, state: 'active' } };
-        });
       } else if (msg.type === 'task-stopped') {
         // Task completed or was stopped
         const agentId = msg.agentId as number;
         os.setAgentActive(agentId, false);
         os.setAgentTool(agentId, null);
         os.clearPermissionBubble(agentId);
-        setDeviceInfo((prev) => {
-          const cur = prev[agentId];
-          if (!cur || cur.state === 'idle') return prev;
-          return { ...prev, [agentId]: { ...cur, state: 'idle' } };
-        });
         // Remove sub-agents of this Tester
         os.removeAllSubagents(agentId);
         setSubagentCharacters((prev) => prev.filter((s) => s.parentAgentId !== agentId));

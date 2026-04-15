@@ -426,7 +426,7 @@ function App() {
       />
 
       {!editor.isEditMode && !isDebugMode && isBrowserRuntime && (
-        <CommandInput onSubmit={handleBossCommand} deviceInfo={deviceInfo} />
+        <CommandInput onSubmit={handleBossCommand} deviceInfo={deviceInfo} officeState={officeState} />
       )}
 
       {editor.isEditMode && editor.isDirty && (
