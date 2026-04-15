@@ -35,6 +35,37 @@ export const MATRIX_TRAIL_EMPTY_ALPHA = 0.5;
 export const MATRIX_TRAIL_MID_THRESHOLD = 0.33;
 export const MATRIX_TRAIL_DIM_THRESHOLD = 0.66;
 
+// ── Sparks Effect (physics-based welding sparks) ─────────────
+export const SPARK_SPAWN_INTERVAL_MS = 600;   // ms between spawn checks per emitter
+export const SPARK_SPAWN_CHANCE = 0.2;         // probability each interval
+export const SPARK_MAX_COUNT = 60;             // max active particles
+export const SPARK_VX_RANGE = 5;              // horizontal speed range ±, sprite-px/sec
+export const SPARK_VY_INIT = 6;               // initial downward speed, sprite-px/sec
+export const SPARK_VY_RANGE = 10;             // random addition to vy
+export const SPARK_GRAVITY = 25;              // downward accel, sprite-px/sec²
+export const SPARK_ALPHA_FADE = 1.2;          // alpha loss per second
+export const SPARK_SIZE_PX = 2.5;             // initial particle size, sprite-px
+export const SPARK_FALL_LIMIT_PX = 28;        // max fall distance before cull
+export const SPARK_COLORS = ['#fff2a8', '#ffbf47', '#ff7a1a', '#ffffff'];
+
+// ── Intel Monitor Effect (interval-based random alerts) ───────
+export const INTEL_ALERT_INTERVAL_MS = 2000;       // ms between new alert spawns
+export const INTEL_ALERT_MIN_DURATION_MS = 1000;   // minimum alert lifetime
+export const INTEL_ALERT_MAX_DURATION_MS = 4000;   // maximum alert lifetime
+export const INTEL_ALERT_MAX_RADIUS_PX = 5;        // expanding ring max radius, sprite-px
+export const INTEL_ALERT_STROKE_PX = 2;
+export const INTEL_ALERT_ALPHA = 0.8;
+export const INTEL_SCANLINE_ALPHA = 0.22;
+export const INTEL_SCANLINE_HEIGHT_PX = 4;
+export const INTEL_SCAN_SPEED = 0.75;
+export const INTEL_SCAN_INTERVAL_MS = 4000;        // ms between scanline activations
+export const INTEL_SCAN_DURATION_MS = 1200;        // ms each scanline stays active
+export const INTEL_BORDER_INTERVAL_MS = 6000;      // ms between border activations
+export const INTEL_BORDER_DURATION_MS = 700;       // ms each border stays active
+export const INTEL_SCREEN_HEIGHT_FRACTION = 0.60;  // top fraction of sprite is screen; bottom is desk
+export const INTEL_MONITOR_COLOR = 'rgba(255, 72, 72, 1)';
+export const INTEL_MONITOR_FILL = 'rgba(255, 40, 40, 0.08)';
+
 // ── Rendering ────────────────────────────────────────────────
 export const CHARACTER_SITTING_OFFSET_PX = 6;
 export const CHARACTER_Z_SORT_OFFSET = 0.5;

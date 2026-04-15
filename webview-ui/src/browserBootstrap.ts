@@ -50,10 +50,10 @@ let mockPayload: MockPayload | null = null;
 
 /**
  * Enable/disable mock agents (PM, Analyst, Tester, Tester2, Tester3).
- * Set to false when using real ADB device Testers.
+ * Persisted in localStorage so the Settings UI can toggle it without code changes.
  * Boss (ID 100) is always present regardless of this flag.
  */
-export const ENABLE_MOCK_AGENTS = false;
+export const ENABLE_MOCK_AGENTS = localStorage.getItem('mockAgentsEnabled') === 'true';
 
 // ── PNG decode helpers (browser fallback) ───────────────────────────────────
 

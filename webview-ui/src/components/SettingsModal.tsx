@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { isSoundEnabled, setSoundEnabled } from '../notificationSound.js';
+import { isBrowserRuntime } from '../runtime.js';
 import { vscode } from '../webviewBridge.js';
 import { Button } from './ui/Button.js';
 import { Checkbox } from './ui/Checkbox.js';
@@ -35,6 +36,9 @@ export function SettingsModal({
   onToggleHooksEnabled,
 }: SettingsModalProps) {
   const [soundLocal, setSoundLocal] = useState(isSoundEnabled);
+  const [mockAgents, setMockAgents] = useState(
+    () => isBrowserRuntime && localStorage.getItem('mockAgentsEnabled') === 'true',
+  );
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Settings">
@@ -114,6 +118,18 @@ export function SettingsModal({
         onChange={onToggleAlwaysShowOverlay}
       />
       <Checkbox label="Debug View" checked={isDebugMode} onChange={onToggleDebugMode} />
+      {isBrowserRuntime && (
+        <Checkbox
+          label="Mock Characters"
+          checked={mockAgents}
+          onChange={() => {
+            const next = !mockAgents;
+            localStorage.setItem('mockAgentsEnabled', next ? 'true' : 'false');
+            setMockAgents(next);
+            location.reload();
+          }}
+        />
+      )}
     </Modal>
   );
 }
