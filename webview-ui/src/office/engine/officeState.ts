@@ -939,52 +939,57 @@ export class OfficeState {
   }
 
   private tickPm(ch: Character, dt: number): void {
+    // While walking to a target, wait until arrival (behaviorQueue clears on arrival)
     if (ch.behaviorQueue.length > 0) return;
 
-    // Initialize timer
+    // Initialize: start in cooldown phase (npcPatrolIndex undefined = cooldown)
     if (ch.npcTimer === undefined) ch.npcTimer = OfficeState.PM_PATROL_COOLDOWN_SEC;
+
     ch.npcTimer -= dt;
     if (ch.npcTimer > 0) return;
 
-    // Timer expired — find an active DUT to visit
     const activeDuts = this.getActiveDuts();
-    if (activeDuts.length === 0) {
+
+    if (ch.npcPatrolIndex === undefined) {
+      // ── Cooldown expired — start a new patrol run ─────────────────────────
+      if (activeDuts.length === 0) {
+        ch.npcTimer = OfficeState.PM_PATROL_COOLDOWN_SEC;
+        return;
+      }
+      ch.npcPatrolIndex = 0;
+    } else {
+      // ── Stay expired at current DUT — advance to next ──────────────────────
+      ch.npcPatrolIndex++;
+    }
+
+    if (ch.npcPatrolIndex >= activeDuts.length) {
+      // All DUTs visited — return to own seat, then enter cooldown
+      ch.npcPatrolIndex = undefined;
+      const profile = ch.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
+      if (profile?.workSeat) {
+        ch.behaviorQueue.push({ seatId: profile.workSeat, action: 'rest' });
+      }
       ch.npcTimer = OfficeState.PM_PATROL_COOLDOWN_SEC;
       return;
     }
 
-    // Round-robin
-    if (ch.npcPatrolIndex === undefined) ch.npcPatrolIndex = 0;
-    const dutIdx = ch.npcPatrolIndex % activeDuts.length;
-    ch.npcPatrolIndex = (ch.npcPatrolIndex + 1) % activeDuts.length;
-    const dut = activeDuts[dutIdx];
+    // Walk to the current DUT's workstation, then stay PM_PATROL_STAY_SEC
+    this.pmWalkToDut(ch, activeDuts[ch.npcPatrolIndex]);
+    ch.npcTimer = OfficeState.PM_PATROL_STAY_SEC;
+  }
 
-    // Walk to DUT's workstation area
+  /** Queue a walk-to-DUT patrol step for PM */
+  private pmWalkToDut(ch: Character, dut: Character): void {
     const dutSeat = dut.seatId ? this.seats.get(dut.seatId) : null;
-    const target = dutSeat
-      ? findAdjacentWalkable(dutSeat.seatCol, dutSeat.seatRow, this.tileMap, this.blockedTiles)
-      : null;
-
-    if (target) {
-      const dc = (dutSeat?.seatCol ?? target.col) - target.col;
-      const dr = (dutSeat?.seatRow ?? target.row) - target.row;
-      let facingDir: Direction;
-      if (Math.abs(dc) >= Math.abs(dr)) {
-        facingDir = dc > 0 ? Direction.RIGHT : Direction.LEFT;
-      } else {
-        facingDir = dr > 0 ? Direction.DOWN : Direction.UP;
-      }
-      ch.behaviorQueue.push({ tile: target, facingDir, action: 'patrol' });
-    }
-
-    // Return to own seat
-    const profile = ch.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
-    if (profile) {
-      ch.behaviorQueue.push({ seatId: profile.workSeat, action: 'rest' });
-    }
-
-    // Reset cooldown
-    ch.npcTimer = OfficeState.PM_PATROL_COOLDOWN_SEC + OfficeState.PM_PATROL_STAY_SEC;
+    if (!dutSeat) return;
+    const target = findAdjacentWalkable(dutSeat.seatCol, dutSeat.seatRow, this.tileMap, this.blockedTiles);
+    if (!target) return;
+    const dc = dutSeat.seatCol - target.col;
+    const dr = dutSeat.seatRow - target.row;
+    const facingDir: Direction = Math.abs(dc) >= Math.abs(dr)
+      ? (dc > 0 ? Direction.RIGHT : Direction.LEFT)
+      : (dr > 0 ? Direction.DOWN : Direction.UP);
+    ch.behaviorQueue.push({ tile: target, facingDir, action: 'patrol' });
   }
 
   private findCharacterByRole(role: AgentRole): Character | null {
@@ -996,7 +1001,7 @@ export class OfficeState {
 
   private findIdleDut(): Character | null {
     for (const ch of this.characters.values()) {
-      if (ch.role === AgentRole.DUT && !ch.isActive) return ch;
+      if (ch.role === AgentRole.DUT && !ch.isActive && !ch.matrixEffect) return ch;
     }
     return null;
   }
@@ -1004,7 +1009,7 @@ export class OfficeState {
   private getActiveDuts(): Character[] {
     const result: Character[] = [];
     for (const ch of this.characters.values()) {
-      if (ch.role === AgentRole.DUT && ch.isActive) result.push(ch);
+      if (ch.role === AgentRole.DUT && ch.isActive && !ch.matrixEffect) result.push(ch);
     }
     return result;
   }

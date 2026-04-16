@@ -140,6 +140,26 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     sprite: 11,
     spawnTile: { col: 3, row: 17 },
   },
+  npc_bunny3: {
+    name: '兔女郎（外場）',
+    role: AgentRole.NPC,
+    npcType: 'bunny',
+    room: RoomId.LOBBY,
+    workSeat: '',
+    wanderArea: 'lobby-seat',
+    sprite: 11,
+    spawnTile: { col: 8, row: 16 },
+  },
+  npc_bunny4: {
+    name: '兔女郎（外場）',
+    role: AgentRole.NPC,
+    npcType: 'bunny',
+    room: RoomId.LOBBY,
+    workSeat: '',
+    wanderArea: 'lobby-seat',
+    sprite: 11,
+    spawnTile: { col: 14, row: 15 },
+  },
 };
 
 // ── Lookup helpers ───────────────────────────────────────────────────────────

@@ -373,6 +373,8 @@ export async function dispatchMockMessages(): Promise<void> {
   const PM_ID = 102;
   const BUNNY1_ID = 103;
   const BUNNY2_ID = 104;
+  const BUNNY3_ID = 105;
+  const BUNNY4_ID = 106;
 
   // Boss is always present; NPC mock agents gate on ENABLE_MOCK_AGENTS
   const mockAgentIds: number[] = [BOSS_ID];
@@ -388,6 +390,8 @@ export async function dispatchMockMessages(): Promise<void> {
       [PM_ID, 'npc_pm'],
       [BUNNY1_ID, 'npc_bunny1'],
       [BUNNY2_ID, 'npc_bunny2'],
+      [BUNNY3_ID, 'npc_bunny3'],
+      [BUNNY4_ID, 'npc_bunny4'],
     ];
     for (const [id, key] of npcEntries) {
       const p = profiles[key];
