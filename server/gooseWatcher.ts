@@ -10,6 +10,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { StringDecoder } from 'string_decoder';
 
 import type { GooseEvent } from './gooseEvents.ts';
 
@@ -28,6 +29,9 @@ interface WatchedFile {
   filePath: string;
   offset: number;
   lineBuffer: string;
+  /** Stateful UTF-8 decoder — holds partial multi-byte chars across read boundaries
+   *  so a CJK character split between two reads doesn't decode to U+FFFD. */
+  decoder: StringDecoder;
 }
 
 const POLL_INTERVAL_DEFAULT = 1000;
@@ -140,6 +144,7 @@ export class GooseWatcher {
       filePath,
       offset,
       lineBuffer: '',
+      decoder: new StringDecoder('utf8'),
     });
 
     this.onFileFound?.(filePath);
@@ -172,6 +177,9 @@ export class GooseWatcher {
     if (stat.size < state.offset) {
       state.offset = 0;
       state.lineBuffer = '';
+      // Rebuild decoder so any partial bytes held from the previous file
+      // don't contaminate the start of the new content.
+      state.decoder = new StringDecoder('utf8');
     }
 
     if (stat.size === state.offset) return;
@@ -185,7 +193,12 @@ export class GooseWatcher {
       fs.readSync(fd, buf, 0, buf.length, state.offset);
       state.offset = stat.size;
 
-      const text = state.lineBuffer + buf.toString('utf-8');
+      // Use stateful decoder instead of buf.toString('utf-8'):
+      // if a multi-byte char (e.g. CJK, 3 bytes) is split across two reads,
+      // toString would emit U+FFFD for each half, corrupting the line forever.
+      // decoder.write() holds the trailing incomplete bytes internally and
+      // prepends them to the next write, so the char is reassembled intact.
+      const text = state.lineBuffer + state.decoder.write(buf);
       const lines = text.split('\n');
 
       // Last element is either '' (line ended with \n) or partial line
