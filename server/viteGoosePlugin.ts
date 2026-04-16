@@ -453,12 +453,17 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
               os.tmpdir(),
               `goose-run-${Date.now()}.cmd`,
             );
-            const cmdEscaped = command.replace(/"/g, '""');
+            // Do NOT embed the command string directly in the .cmd file:
+            // CMD reads .cmd files using the system ANSI codepage (e.g. cp950/cp936),
+            // so UTF-8 encoded Chinese characters would be corrupted.
+            // Instead, pass the command through a PowerShell environment variable
+            // ($env:GOOSE_TASK_COMMAND) — PowerShell uses Unicode internally and
+            // child processes inherit the env var correctly.
             const script = [
               '@echo off',
               `cd /d "${resolvedGooseDir}"`,
               `set ANDROID_SERIAL=${assigned.serial}`,
-              `call "${batPath}" run --testrun="${testrun}" -t "${cmdEscaped}"`,
+              `call "${batPath}" run --testrun="${testrun}" -t "%GOOSE_TASK_COMMAND%"`,
               'del "%~f0"',
             ].join('\r\n');
             fs.writeFileSync(tmpCmd, script, 'utf8');
@@ -469,7 +474,10 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             // 在 Node 端 capture stdout → parse 成 cmd 的 PID → setTaskPid。
             // 之後 /goose/kill 可用 taskkill /T 連整棵子樹（bat/python/goose）一起收。
             const safeTmp = tmpCmd.replace(/'/g, "''");
+            // Single-quoted PS strings are literal (only '' escapes ') — safe for Unicode
+            const safeCmd = command.replace(/'/g, "''");
             const psCommand =
+              `$env:GOOSE_TASK_COMMAND='${safeCmd}'; ` +
               `Start-Process -FilePath cmd` +
               ` -ArgumentList '/c','${safeTmp}'` +
               ` -WindowStyle Hidden` +
