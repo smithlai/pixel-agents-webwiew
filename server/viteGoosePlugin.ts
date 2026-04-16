@@ -20,10 +20,10 @@ import type { Plugin, ViteDevServer } from 'vite';
 import { findHighestDefaultLayout } from '../shared/assets/layoutDefaults.ts';
 import { AdbPoller } from './adbPoller.ts';
 import { DeviceManager } from './deviceManager.ts';
-import { EventTranslator } from './eventTranslator.ts';
 import { GooseWatcher } from './gooseWatcher.ts';
 import { heartbeatFilename } from './heartbeatPaths.ts';
 import { HeartbeatWatchdog } from './heartbeatWatchdog.ts';
+import { SessionCleaner } from './sessionCleaner.ts';
 
 // Project root = one level up from this file (server/)
 const __filename = fileURLToPath(import.meta.url);
@@ -81,24 +81,20 @@ function writeUiState(state: Record<string, unknown>): void {
 export interface GoosePluginOptions {
   /** Directory containing goose-events-*.jsonl files */
   watchDir: string;
-  /** Agent ID for the fallback Goose character when no device is matched (default: 103 = Tester) */
-  agentId?: number;
   /** MobileGoose root directory — enables POST /goose/run to spawn test sessions */
   mobileGooseDir?: string;
 }
 
 export function goosePlugin(options: GoosePluginOptions): Plugin {
-  const { watchDir, agentId = 103, mobileGooseDir } = options;
+  const { watchDir, mobileGooseDir } = options;
 
   let watcher: GooseWatcher | null = null;
   let heartbeatWatchdog: HeartbeatWatchdog | null = null;
+  let cleaner: SessionCleaner | null = null;
   const deviceManager = new DeviceManager();
   const adbPoller = new AdbPoller((devices) => {
     deviceManager.updateDevices(devices);
   });
-
-  // Fallback translator for JSONL files that can't be matched to a device
-  const fallbackTranslator = new EventTranslator(agentId);
 
   // ws types are imported dynamically to avoid resolution issues
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -156,7 +152,6 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
 
     async configureServer(server: ViteDevServer) {
       // Dynamic import of ws — resolved at runtime from webview-ui/node_modules
-      // @ts-expect-error dynamic import resolved at runtime by Vite/Node
       import('ws').then(({ WebSocketServer }: { WebSocketServer: new (opts: { noServer: boolean }) => import('ws').WebSocketServer }) => {
         // ── WebSocket server (shares the Vite HTTP server) ──────────────
         wss = new WebSocketServer({ noServer: true });
@@ -229,11 +224,17 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
       watcher = new GooseWatcher({
         watchDir,
         onEvent: (event, file) => {
-          // Try to route to the device-specific translator
           const serial = fileSerialMap.get(file);
-          const translator = serial
-            ? deviceManager.getTranslator(serial) ?? fallbackTranslator
-            : fallbackTranslator;
+          if (!serial) {
+            console.warn(`[GoosePlugin] Unmapped JSONL event dropped: ${path.basename(file)} (${event.type})`);
+            return;
+          }
+
+          const translator = deviceManager.getTranslator(serial);
+          if (!translator) {
+            console.warn(`[GoosePlugin] Missing translator for serial ${serial}; event dropped (${event.type})`);
+            return;
+          }
 
           const messages = translator.translate(event);
           console.log(`[GoosePlugin] Event: ${event.type} → ${messages.length} messages (${clients.size} clients)${serial ? ` [${serial}]` : ''}`);
@@ -269,8 +270,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             tr?.reset();
             console.log(`[GoosePlugin] Mapped JSONL to device: ${serial}`);
           } else {
-            // Fallback — no serial in filename
-            fallbackTranslator.reset();
+            console.warn(`[GoosePlugin] Ignoring JSONL with unexpected filename: ${path.basename(file)}`);
           }
         },
       });
@@ -298,6 +298,15 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
       });
       heartbeatWatchdog.start();
       console.log('[GoosePlugin] HeartbeatWatchdog started');
+
+      // Session cleanup — maintains per-device quota (default: 10 sessions per device)
+      cleaner = new SessionCleaner({
+        watchDir,
+        maxSessionsPerDevice: 10,
+        cleanupIntervalMs: 3600000,
+      });
+      cleaner.start();
+      console.log('[GoosePlugin] SessionCleaner started (max 10 sessions per device, cleanup every 1h)');
 
       // ── REST endpoints ──────────────────────────────────────────────────
       const base = server.config.base.replace(/\/$/, '');
@@ -615,6 +624,15 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
       }
 
       console.log(`[GoosePlugin] Ready — watching ${watchDir}`);
+
+      // Cleanup on server close
+      server.httpServer?.on('close', () => {
+        console.log('[GoosePlugin] Server closing — stopping watchers...');
+        watcher?.stop();
+        heartbeatWatchdog?.stop();
+        cleaner?.stop();
+        adbPoller?.stop();
+      });
     },
   };
 }
