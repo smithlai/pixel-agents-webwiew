@@ -29,10 +29,8 @@ import type {
 } from '../../shared/assets/types.ts';
 import { DEFAULT_PROFILES as profiles } from './office/agentProfiles.js';
 import { setCharacterFrameCanvases } from './office/sprites/spriteData.js';
-import {
-  scheduleMockTester2Session,
-  scheduleMockTester3Session,
-} from './browserMockData.js';
+// Mock session schedulers available for future use:
+// import { scheduleMockTester2Session, scheduleMockTester3Session } from './browserMockData.js';
 import { loadBrowserPersistedSettings, loadSavedLayout } from './webviewBridge.js';
 
 interface MockPayload {
@@ -371,33 +369,32 @@ export async function dispatchMockMessages(): Promise<void> {
   // ── Goose mock agents (buffered before layoutLoaded) ─────────────────────────
   // Agent profiles define seat assignments and metadata (see agentProfiles.ts)
   const BOSS_ID = 100;
-  const PM_ID = 101;
-  const ANALYST_ID = 102;
-  const TESTER_ID = 103;
-  const TESTER3_ID = 104;
-  const TESTER2_ID = 105;
+  const SECRETARY_ID = 101;
+  const PM_ID = 102;
+  const BUNNY1_ID = 103;
+  const BUNNY2_ID = 104;
 
-  // Boss is always present; other mock agents gate on ENABLE_MOCK_AGENTS
-  const mockAgentIds = ENABLE_MOCK_AGENTS
-    ? [BOSS_ID, PM_ID, ANALYST_ID, TESTER_ID, TESTER3_ID, TESTER2_ID, 106, 107, 108, 109, 110]
-    : [BOSS_ID];
-  const mockMeta: Record<number, { seatId: string }> = {
+  // Boss is always present; NPC mock agents gate on ENABLE_MOCK_AGENTS
+  const mockAgentIds: number[] = [BOSS_ID];
+  const mockMeta: Record<number, { seatId: string; palette?: number }> = {
     [BOSS_ID]: { seatId: profiles.boss.workSeat },
   };
   const mockNames: Record<number, string> = {
     [BOSS_ID]: profiles.boss.name,
   };
   if (ENABLE_MOCK_AGENTS) {
-    mockMeta[PM_ID] = { seatId: profiles.pm.workSeat };
-    mockMeta[ANALYST_ID] = { seatId: profiles.analyst.workSeat };
-    mockMeta[TESTER_ID] = { seatId: profiles.tester.workSeat };
-    mockMeta[TESTER3_ID] = { seatId: profiles.tester3.workSeat };
-    mockMeta[TESTER2_ID] = { seatId: profiles.tester2.workSeat };
-    mockNames[PM_ID] = profiles.pm.name;
-    mockNames[ANALYST_ID] = profiles.analyst.name;
-    mockNames[TESTER_ID] = profiles.tester.name;
-    mockNames[TESTER3_ID] = profiles.tester3.name;
-    mockNames[TESTER2_ID] = profiles.tester2.name;
+    const npcEntries: Array<[number, string]> = [
+      [SECRETARY_ID, 'npc_secretary'],
+      [PM_ID, 'npc_pm'],
+      [BUNNY1_ID, 'npc_bunny1'],
+      [BUNNY2_ID, 'npc_bunny2'],
+    ];
+    for (const [id, key] of npcEntries) {
+      const p = profiles[key];
+      mockAgentIds.push(id);
+      mockMeta[id] = { seatId: p.workSeat, palette: p.sprite };
+      mockNames[id] = key;
+    }
   }
 
   dispatch({
@@ -425,20 +422,11 @@ export async function dispatchMockMessages(): Promise<void> {
   });
 
   // All present agents start idle
-  dispatch({ type: 'agentStatus', id: BOSS_ID, status: 'idle' });
-  if (ENABLE_MOCK_AGENTS) {
-    dispatch({ type: 'agentStatus', id: PM_ID, status: 'idle' });
-    dispatch({ type: 'agentStatus', id: ANALYST_ID, status: 'idle' });
-    dispatch({ type: 'agentStatus', id: TESTER_ID, status: 'idle' });
-    dispatch({ type: 'agentStatus', id: TESTER3_ID, status: 'idle' });
-    dispatch({ type: 'agentStatus', id: TESTER2_ID, status: 'idle' });
-
-    scheduleMockTester3Session(dispatch, TESTER3_ID);
-    scheduleMockTester2Session(dispatch, TESTER2_ID);
+  for (const id of mockAgentIds) {
+    dispatch({ type: 'agentStatus', id, status: 'idle' });
   }
 
-  // Tester (ID 103): use real Goose events if server is watching, otherwise run mock
-  // Tester (ID 103): always rely on real Goose events via WebSocket — no mock
+  // Goose WebSocket 事件串流
   import('./gooseSocket.js').then(({ initGooseSocket }) => {
     initGooseSocket();
   }).catch(() => {});

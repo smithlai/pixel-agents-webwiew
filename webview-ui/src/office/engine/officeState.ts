@@ -32,7 +32,7 @@ import type {
   TileType as TileTypeVal,
 } from '../types.js';
 import { CharacterState, Direction, MATRIX_EFFECT_DURATION, TILE_SIZE } from '../types.js';
-import { DEFAULT_PROFILES, matchProfile } from '../agentProfiles.js';
+import { AgentRole, DEFAULT_PROFILES, matchProfile } from '../agentProfiles.js';
 import { createCharacter, updateCharacter } from './characters.js';
 import { matrixEffectSeeds } from './matrixEffect.js';
 
@@ -114,8 +114,10 @@ export class OfficeState {
     }
 
     // Second pass: assign remaining characters to free seats
+    // Skip characters that intentionally have no seat (e.g. bunny NPCs with spawnTile)
     for (const ch of this.characters.values()) {
       if (ch.seatId) continue;
+      if (ch.npcType === 'bunny') continue;
       const seatId = this.findFreeSeat();
       if (seatId) {
         this.seats.get(seatId)!.assigned = true;
@@ -230,6 +232,7 @@ export class OfficeState {
     const counts = new Array(paletteCount).fill(0) as number[];
     for (const ch of this.characters.values()) {
       if (ch.isSubagent) continue;
+      if (ch.role === 'npc') continue;
       counts[ch.palette % paletteCount]++;
     }
     const minCount = Math.min(...counts);
@@ -265,6 +268,10 @@ export class OfficeState {
     if (preferredPalette !== undefined) {
       palette = preferredPalette;
       hueShift = preferredHueShift ?? 0;
+    } else if (profile?.sprite !== undefined) {
+      // NPC with fixed sprite index — bypass rotation pool
+      palette = profile.sprite;
+      hueShift = 0;
     } else if (profile?.palette !== undefined) {
       palette = profile.palette;
       hueShift = 0;
@@ -274,38 +281,47 @@ export class OfficeState {
       hueShift = pick.hueShift;
     }
 
-    // Seat priority: explicit param > profile workSeat > any free seat
-    let seatId: string | null = null;
-    const seatCandidates = [preferredSeatId, profile?.workSeat].filter(Boolean) as string[];
-    for (const candidate of seatCandidates) {
-      if (this.seats.has(candidate)) {
-        const seat = this.seats.get(candidate)!;
-        if (!seat.assigned) {
-          seatId = candidate;
-          break;
+    let ch: Character;
+    if (profile?.spawnTile) {
+      // Fixed spawn position (no seat) — used by bunny NPCs
+      ch = createCharacter(id, palette, null, null, hueShift);
+      ch.x = profile.spawnTile.col * TILE_SIZE + TILE_SIZE / 2;
+      ch.y = profile.spawnTile.row * TILE_SIZE + TILE_SIZE / 2;
+      ch.tileCol = profile.spawnTile.col;
+      ch.tileRow = profile.spawnTile.row;
+    } else {
+      // Seat priority: explicit param > profile workSeat > any free seat
+      let seatId: string | null = null;
+      const seatCandidates = [preferredSeatId, profile?.workSeat].filter(Boolean) as string[];
+      for (const candidate of seatCandidates) {
+        if (this.seats.has(candidate)) {
+          const seat = this.seats.get(candidate)!;
+          if (!seat.assigned) {
+            seatId = candidate;
+            break;
+          }
         }
       }
-    }
-    if (!seatId) {
-      seatId = this.findFreeSeat();
-    }
+      if (!seatId) {
+        seatId = this.findFreeSeat();
+      }
 
-    let ch: Character;
-    if (seatId) {
-      const seat = this.seats.get(seatId)!;
-      seat.assigned = true;
-      ch = createCharacter(id, palette, seatId, seat, hueShift);
-    } else {
-      // No seats — spawn at random walkable tile
-      const spawn =
-        this.walkableTiles.length > 0
-          ? this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)]
-          : { col: 1, row: 1 };
-      ch = createCharacter(id, palette, null, null, hueShift);
-      ch.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
-      ch.y = spawn.row * TILE_SIZE + TILE_SIZE / 2;
-      ch.tileCol = spawn.col;
-      ch.tileRow = spawn.row;
+      if (seatId) {
+        const seat = this.seats.get(seatId)!;
+        seat.assigned = true;
+        ch = createCharacter(id, palette, seatId, seat, hueShift);
+      } else {
+        // No seats — spawn at random walkable tile
+        const spawn =
+          this.walkableTiles.length > 0
+            ? this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)]
+            : { col: 1, row: 1 };
+        ch = createCharacter(id, palette, null, null, hueShift);
+        ch.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
+        ch.y = spawn.row * TILE_SIZE + TILE_SIZE / 2;
+        ch.tileCol = spawn.col;
+        ch.tileRow = spawn.row;
+      }
     }
 
     // Apply profile metadata
@@ -319,7 +335,26 @@ export class OfficeState {
       }
       if (profile.restSeat) ch.restSeatId = profile.restSeat;
       if (profile.reportTo) ch.reportToKey = profile.reportTo;
+      if (profile.role) ch.role = profile.role;
+      if (profile.wanderArea) ch.wanderArea = profile.wanderArea;
+      if (profile.npcType) ch.npcType = profile.npcType;
     }
+    // Bunny NPCs start standing and wandering, not sitting
+    if (ch.npcType === 'bunny') {
+      ch.isActive = false;
+      ch.state = CharacterState.IDLE;
+      ch.wanderTimer = 0.5;
+      ch.wanderCount = 0;
+      ch.wanderLimit = Infinity;
+      ch.restSeatId = undefined;
+      // Release the seat so others can use it
+      if (ch.seatId) {
+        const seat = this.seats.get(ch.seatId);
+        if (seat) seat.assigned = false;
+        ch.seatId = null;
+      }
+    }
+
     if (!skipSpawnEffect) {
       ch.matrixEffect = 'spawn';
       ch.matrixEffectTimer = 0;
@@ -501,6 +536,53 @@ export class OfficeState {
     this.subagentIdMap.set(key, id);
     this.subagentMeta.set(id, { parentAgentId, parentToolId });
     return id;
+  }
+
+  /**
+   * Route a sub-agent (droidrun) to the robot workshop.
+   * Finds the nearest free seat in the workshop, or a walkable tile near the robot arms.
+   */
+  routeSubagentToWorkshop(subagentId: number): void {
+    const ch = this.characters.get(subagentId);
+    if (!ch) return;
+
+    ch.role = AgentRole.DROIDRUN;
+
+    // Find a seat in the robot workshop area (col 0-8, row 0-10)
+    const workshopBounds = { colMin: 0, colMax: 8, rowMin: 0, rowMax: 10 };
+    let bestSeatId: string | null = null;
+    for (const [uid, seat] of this.seats) {
+      if (!seat.assigned &&
+        seat.seatCol >= workshopBounds.colMin && seat.seatCol <= workshopBounds.colMax &&
+        seat.seatRow >= workshopBounds.rowMin && seat.seatRow <= workshopBounds.rowMax) {
+        bestSeatId = uid;
+        break;
+      }
+    }
+
+    // Release the initial seat (near parent) so we can reassign to workshop
+    if (ch.seatId) {
+      const oldSeat = this.seats.get(ch.seatId);
+      if (oldSeat) oldSeat.assigned = false;
+      ch.seatId = null;
+    }
+
+    if (bestSeatId) {
+      // Reassign seat to workshop — FSM will naturally walk there
+      const wSeat = this.seats.get(bestSeatId)!;
+      wSeat.assigned = true;
+      ch.seatId = bestSeatId;
+    } else {
+      // No seat — walk to a walkable tile in the workshop
+      const workshopTiles = this.walkableTiles.filter(
+        (t) => t.col >= workshopBounds.colMin && t.col <= workshopBounds.colMax &&
+          t.row >= workshopBounds.rowMin && t.row <= workshopBounds.rowMax,
+      );
+      if (workshopTiles.length > 0) {
+        const target = workshopTiles[Math.floor(Math.random() * workshopTiles.length)];
+        ch.behaviorQueue.push({ tile: target, action: 'work' });
+      }
+    }
   }
 
   /** Remove a specific sub-agent character and free its seat */
@@ -766,6 +848,15 @@ export class OfficeState {
     }
   }
 
+  showTextBubble(id: number, text: string, duration = 5): void {
+    const ch = this.characters.get(id);
+    if (ch) {
+      ch.bubbleType = 'text';
+      ch.bubbleText = text;
+      ch.bubbleTimer = duration;
+    }
+  }
+
   /** Dismiss bubble on click — permission: instant, waiting: quick fade */
   dismissBubble(id: number): void {
     const ch = this.characters.get(id);
@@ -777,6 +868,145 @@ export class OfficeState {
       // Trigger immediate fade (0.3s remaining)
       ch.bubbleTimer = Math.min(ch.bubbleTimer, DISMISS_BUBBLE_FAST_FADE_SEC);
     }
+  }
+
+  // ── NPC behavior constants ──────────────────────────────────────────────
+  private static readonly PM_PATROL_COOLDOWN_SEC = 30;
+  private static readonly PM_PATROL_STAY_SEC = 5;
+  private static readonly SECRETARY_DISPATCH_TEXT = '老闆，目前沒有可用 DUT';
+  private static readonly TEXT_BUBBLE_DURATION_SEC = 5;
+
+  /** Tick NPC-specific behaviors (secretary, PM, bunny) */
+  private updateNpcBehaviors(dt: number): void {
+    for (const ch of this.characters.values()) {
+      if (!ch.npcType) continue;
+      if (ch.matrixEffect) continue;
+
+      switch (ch.npcType) {
+        case 'secretary':
+          this.tickSecretary(ch, dt);
+          break;
+        case 'pm':
+          this.tickPm(ch, dt);
+          break;
+        // bunny: handled by normal wander with wanderArea constraint
+      }
+    }
+  }
+
+  private tickSecretary(ch: Character, _dt: number): void {
+    // Secretary reacts when Boss becomes active: find an idle DUT and dispatch
+    if (ch.behaviorQueue.length > 0) return;
+    if (ch.state !== CharacterState.IDLE && ch.state !== CharacterState.TYPE) return;
+
+    // Find boss character
+    const boss = this.findCharacterByRole(AgentRole.BOSS);
+    if (!boss || !boss.isActive) return;
+
+    // Boss is active — find an idle (not active) DUT
+    const idleDut = this.findIdleDut();
+    if (!idleDut) {
+      // No DUT available — show warning bubble (once per boss activation)
+      if (!ch.bubbleType) {
+        this.showTextBubble(ch.id, OfficeState.SECRETARY_DISPATCH_TEXT, OfficeState.TEXT_BUBBLE_DURATION_SEC);
+      }
+      return;
+    }
+
+    // Walk to DUT, show dispatch bubble, then return to own seat
+    const dutSeat = idleDut.seatId ? this.seats.get(idleDut.seatId) : null;
+    const target = dutSeat
+      ? findAdjacentWalkable(dutSeat.seatCol, dutSeat.seatRow, this.tileMap, this.blockedTiles)
+      : null;
+
+    if (target) {
+      const dc = (dutSeat?.seatCol ?? target.col) - target.col;
+      const dr = (dutSeat?.seatRow ?? target.row) - target.row;
+      let facingDir: Direction;
+      if (Math.abs(dc) >= Math.abs(dr)) {
+        facingDir = dc > 0 ? Direction.RIGHT : Direction.LEFT;
+      } else {
+        facingDir = dr > 0 ? Direction.DOWN : Direction.UP;
+      }
+      ch.behaviorQueue.push({ tile: target, facingDir, action: 'dispatch' });
+    }
+
+    // After dispatch, return to own seat
+    const profile = ch.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
+    if (profile) {
+      ch.behaviorQueue.push({ seatId: profile.workSeat, action: 'rest' });
+    }
+  }
+
+  private tickPm(ch: Character, dt: number): void {
+    if (ch.behaviorQueue.length > 0) return;
+
+    // Initialize timer
+    if (ch.npcTimer === undefined) ch.npcTimer = OfficeState.PM_PATROL_COOLDOWN_SEC;
+    ch.npcTimer -= dt;
+    if (ch.npcTimer > 0) return;
+
+    // Timer expired — find an active DUT to visit
+    const activeDuts = this.getActiveDuts();
+    if (activeDuts.length === 0) {
+      ch.npcTimer = OfficeState.PM_PATROL_COOLDOWN_SEC;
+      return;
+    }
+
+    // Round-robin
+    if (ch.npcPatrolIndex === undefined) ch.npcPatrolIndex = 0;
+    const dutIdx = ch.npcPatrolIndex % activeDuts.length;
+    ch.npcPatrolIndex = (ch.npcPatrolIndex + 1) % activeDuts.length;
+    const dut = activeDuts[dutIdx];
+
+    // Walk to DUT's workstation area
+    const dutSeat = dut.seatId ? this.seats.get(dut.seatId) : null;
+    const target = dutSeat
+      ? findAdjacentWalkable(dutSeat.seatCol, dutSeat.seatRow, this.tileMap, this.blockedTiles)
+      : null;
+
+    if (target) {
+      const dc = (dutSeat?.seatCol ?? target.col) - target.col;
+      const dr = (dutSeat?.seatRow ?? target.row) - target.row;
+      let facingDir: Direction;
+      if (Math.abs(dc) >= Math.abs(dr)) {
+        facingDir = dc > 0 ? Direction.RIGHT : Direction.LEFT;
+      } else {
+        facingDir = dr > 0 ? Direction.DOWN : Direction.UP;
+      }
+      ch.behaviorQueue.push({ tile: target, facingDir, action: 'patrol' });
+    }
+
+    // Return to own seat
+    const profile = ch.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
+    if (profile) {
+      ch.behaviorQueue.push({ seatId: profile.workSeat, action: 'rest' });
+    }
+
+    // Reset cooldown
+    ch.npcTimer = OfficeState.PM_PATROL_COOLDOWN_SEC + OfficeState.PM_PATROL_STAY_SEC;
+  }
+
+  private findCharacterByRole(role: AgentRole): Character | null {
+    for (const ch of this.characters.values()) {
+      if (ch.role === role) return ch;
+    }
+    return null;
+  }
+
+  private findIdleDut(): Character | null {
+    for (const ch of this.characters.values()) {
+      if (ch.role === AgentRole.DUT && !ch.isActive) return ch;
+    }
+    return null;
+  }
+
+  private getActiveDuts(): Character[] {
+    const result: Character[] = [];
+    for (const ch of this.characters.values()) {
+      if (ch.role === AgentRole.DUT && ch.isActive) result.push(ch);
+    }
+    return result;
   }
 
   update(dt: number): void {
@@ -821,6 +1051,9 @@ export class OfficeState {
         }
       }
     }
+
+    // NPC behavior tick (secretary dispatch, PM patrol, etc.)
+    this.updateNpcBehaviors(dt);
 
     // Reap orphaned sub-agents whose parent is gone or no longer active.
     // This is the safety net for crash/disconnect scenarios where the

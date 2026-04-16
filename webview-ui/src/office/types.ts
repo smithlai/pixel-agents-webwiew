@@ -188,9 +188,11 @@ export interface Character {
   /** Assigned seat uid, or null if no seat */
   seatId: string | null;
   /** Active speech bubble type, or null if none showing */
-  bubbleType: 'permission' | 'waiting' | null;
-  /** Countdown timer for bubble (waiting: 2→0, permission: unused) */
+  bubbleType: 'permission' | 'waiting' | 'text' | null;
+  /** Countdown timer for bubble (waiting: 2→0, text: auto-fade, permission: unused) */
   bubbleTimer: number;
+  /** Text content for 'text' bubble type */
+  bubbleText?: string;
   /** Timer to stay seated while inactive after seat reassignment (counts down to 0) */
   seatTimer: number;
   /** Whether this character represents a sub-agent (spawned by Task tool) */
@@ -205,12 +207,22 @@ export interface Character {
   matrixEffectSeeds: number[];
   /** Workspace folder name (only set for multi-root workspaces) */
   folderName?: string;
-  /** Matched agent profile key (e.g. 'pm', 'tester') */
+  /** Matched agent profile key (e.g. 'boss', 'npc_secretary') */
   profileKey?: string;
   /** Rest seat uid (from AgentProfile.restSeat), used for idle behavior */
   restSeatId?: string;
   /** Report-to agent's profile key (from AgentProfile.reportTo) */
   reportToKey?: string;
+  /** Agent role (from AgentProfile.role) — determines behavior mode */
+  role?: string;
+  /** Room bounding box for area-restricted wander (from AgentProfile.wanderArea) */
+  wanderArea?: string;
+  /** NPC sub-type for behavior dispatch (secretary/pm/bunny) */
+  npcType?: 'secretary' | 'pm' | 'bunny';
+  /** NPC-specific timer (PM: patrol cooldown, secretary: dispatch cooldown) */
+  npcTimer?: number;
+  /** PM patrol: index of next DUT to visit (round-robin) */
+  npcPatrolIndex?: number;
   /**
    * Behavior queue — sequential walk-to targets.
    * Each entry has a target (seatId or tile coords) and an action on arrival.
@@ -227,5 +239,5 @@ export interface BehaviorStep {
   /** Direction to face on arrival */
   facingDir?: Direction;
   /** What to do on arrival */
-  action: 'report' | 'work' | 'rest';
+  action: 'report' | 'work' | 'rest' | 'patrol' | 'dispatch' | 'bar-patrol';
 }

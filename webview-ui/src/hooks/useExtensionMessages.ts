@@ -254,6 +254,8 @@ export function useExtensionMessages(
             const name = `${parentName}-DroidRun-${index}`;
             return [...prev, { id: subId, parentAgentId: id, parentToolId: toolId, label, name }];
           });
+          // Route droidrun sub-agents to the robot workshop
+          os.routeSubagentToWorkshop(subId);
         }
       } else if (msg.type === 'agentToolDone') {
         const id = msg.id as number;
@@ -487,6 +489,13 @@ export function useExtensionMessages(
               undefined,
               profile.name,
             );
+            // Apply DUT profile fields that matchProfile() can't resolve
+            const ch = os.characters.get(device.agentId);
+            if (ch) {
+              ch.role = profile.role;
+              ch.restSeatId = profile.restSeat;
+              ch.reportToKey = profile.reportTo;
+            }
             // Device Testers start idle — only task-assigned sets them active
             os.setAgentActive(device.agentId, false);
             setAgents((prev) => (prev.includes(device.agentId) ? prev : [...prev, device.agentId]));

@@ -13,6 +13,24 @@ import { findPath } from '../layout/tileMap.js';
 import type { CharacterSprites } from '../sprites/spriteData.js';
 import type { BehaviorStep, Character, Seat, SpriteData, TileType as TileTypeVal } from '../types.js';
 import { CharacterState, Direction, TILE_SIZE } from '../types.js';
+import { ROOM_BOUNDS } from '../agentProfiles.js';
+import type { RoomBounds, RoomId } from '../agentProfiles.js';
+
+/** Filter walkable tiles to those within a room's bounding box */
+function filterByRoom(
+  tiles: Array<{ col: number; row: number }>,
+  roomId: string,
+): Array<{ col: number; row: number }> {
+  const bounds = ROOM_BOUNDS[roomId];
+  if (!bounds) return tiles;
+  return tiles.filter(
+    (t) =>
+      t.col >= bounds.colMin &&
+      t.col <= bounds.colMax &&
+      t.row >= bounds.rowMin &&
+      t.row <= bounds.rowMax,
+  );
+}
 
 /** Tools that show reading animation instead of typing */
 const READING_TOOLS = new Set(['Read', 'Grep', 'Glob', 'WebFetch', 'WebSearch']);
@@ -148,7 +166,6 @@ function applyBehaviorAction(ch: Character, step: BehaviorStep, facingDir: Direc
   ch.frameTimer = 0;
   switch (step.action) {
     case 'report':
-      // Stand facing the boss
       ch.state = CharacterState.REPORT;
       ch.dir = facingDir;
       break;
@@ -162,6 +179,21 @@ function applyBehaviorAction(ch: Character, step: BehaviorStep, facingDir: Direc
       ch.seatTimer = randomRange(SEAT_REST_MIN_SEC, SEAT_REST_MAX_SEC);
       ch.wanderCount = 0;
       ch.wanderLimit = randomInt(WANDER_MOVES_BEFORE_REST_MIN, WANDER_MOVES_BEFORE_REST_MAX);
+      break;
+    case 'patrol':
+      // PM stands near DUT for a few seconds then returns (handled by npcTimer)
+      ch.state = CharacterState.IDLE;
+      ch.dir = facingDir;
+      break;
+    case 'dispatch':
+      // Secretary stands near DUT briefly (bubble shown by officeState)
+      ch.state = CharacterState.IDLE;
+      ch.dir = facingDir;
+      break;
+    case 'bar-patrol':
+      // Bunny arrived at a bar waypoint — brief pause then continue
+      ch.state = CharacterState.IDLE;
+      ch.dir = facingDir;
       break;
   }
 }
@@ -286,6 +318,7 @@ export function updateCharacter(
       ch.wanderTimer -= dt;
       if (ch.wanderTimer <= 0) {
         // Check if we've wandered enough — return to rest seat or work seat
+        // Bunny NPCs never return to seat (wanderLimit = Infinity)
         if (ch.wanderCount >= ch.wanderLimit) {
           const restTarget = ch.restSeatId ?? ch.seatId;
           if (restTarget) {
@@ -310,8 +343,11 @@ export function updateCharacter(
             }
           }
         }
-        if (walkableTiles.length > 0) {
-          const target = walkableTiles[Math.floor(Math.random() * walkableTiles.length)];
+        const candidates = ch.wanderArea
+          ? filterByRoom(walkableTiles, ch.wanderArea)
+          : walkableTiles;
+        if (candidates.length > 0) {
+          const target = candidates[Math.floor(Math.random() * candidates.length)];
           const path = findPath(
             ch.tileCol,
             ch.tileRow,
