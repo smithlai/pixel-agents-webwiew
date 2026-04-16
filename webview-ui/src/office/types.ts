@@ -223,6 +223,8 @@ export interface Character {
   npcTimer?: number;
   /** PM patrol: index of next DUT to visit (round-robin) */
   npcPatrolIndex?: number;
+  /** DUT: timestamp (performance.now ms) of last coffee service — avoids rapid re-service */
+  lastCoffeeTs?: number;
   /**
    * Behavior queue — sequential walk-to targets.
    * Each entry has a target (seatId or tile coords) and an action on arrival.
@@ -240,4 +242,6 @@ export interface BehaviorStep {
   facingDir?: Direction;
   /** What to do on arrival */
   action: 'report' | 'work' | 'rest' | 'patrol' | 'dispatch' | 'bar-patrol';
+  /** Optional text bubble to show on arrival (observer-style: the animation carries its own subtitle) */
+  bubbleText?: string;
 }

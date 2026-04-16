@@ -24,6 +24,7 @@ import {
 } from '../layout/layoutSerializer.js';
 import { findAdjacentWalkable, findPath, getWalkableTiles, isWalkable } from '../layout/tileMap.js';
 import type {
+  BehaviorStep,
   Character,
   FurnitureInstance,
   OfficeLayout,
@@ -691,51 +692,81 @@ export class OfficeState {
     return this.subagentIdMap.get(`${parentAgentId}:${parentToolId}`) ?? null;
   }
 
+  /**
+   * Observer-style animation playback.
+   *
+   * Unconditionally overwrites the character's behaviorQueue with the given steps.
+   * Any in-progress walk is allowed to finish its current tile step (the FSM will
+   * pick up the new queue on arrival) — no teleporting, just a clean redirect.
+   *
+   * Use this instead of `ch.behaviorQueue.push(...)` for any event-driven update:
+   * events are truth, animations are reactions, previous reactions get discarded.
+   */
+  private playAnimation(ch: Character, steps: BehaviorStep[]): void {
+    ch.behaviorQueue = steps;
+  }
+
+  /**
+   * Build a BehaviorStep that walks adjacent to a seat and faces toward it.
+   * Returns null if the seat is unreachable.
+   */
+  private stepToSeatAdjacent(seat: Seat, action: BehaviorStep['action']): BehaviorStep | null {
+    const target = findAdjacentWalkable(seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles);
+    if (!target) return null;
+    const dc = seat.seatCol - target.col;
+    const dr = seat.seatRow - target.row;
+    const facingDir: Direction = Math.abs(dc) >= Math.abs(dr)
+      ? (dc > 0 ? Direction.RIGHT : Direction.LEFT)
+      : (dr > 0 ? Direction.DOWN : Direction.UP);
+    return { tile: target, facingDir, action };
+  }
+
   setAgentActive(id: number, active: boolean): void {
     const ch = this.characters.get(id);
-    if (ch) {
-      // Skip if already in the desired state (avoid resetting queue on duplicate calls)
-      if (ch.isActive === active) return;
-      ch.isActive = active;
-      ch.behaviorQueue = [];
-      if (active) {
-        // Build behavior queue: reportTo → workSeat
-        if (ch.reportToKey) {
-          const bossProfile = DEFAULT_PROFILES[ch.reportToKey];
-          if (bossProfile && this.seats.has(bossProfile.workSeat)) {
-            const bossSeat = this.seats.get(bossProfile.workSeat)!;
-            // Find a walkable tile adjacent to the boss's chair
-            const adj = findAdjacentWalkable(
-              bossSeat.seatCol, bossSeat.seatRow, this.tileMap, this.blockedTiles,
-            );
-            if (adj) {
-              // Face toward the boss
-              const dc = bossSeat.seatCol - adj.col;
-              const dr = bossSeat.seatRow - adj.row;
-              let facingDir: Direction;
-              if (Math.abs(dc) >= Math.abs(dr)) {
-                facingDir = dc > 0 ? Direction.RIGHT : Direction.LEFT;
-              } else {
-                facingDir = dr > 0 ? Direction.DOWN : Direction.UP;
-              }
-              ch.behaviorQueue.push({ tile: adj, facingDir, action: 'report' });
-            }
-          }
-        }
-        // After report (or immediately if no boss), go to own workSeat
-        // This will be triggered when the first toolStart arrives (see setAgentTool)
-      } else {
-        // Sentinel -1: signals turn just ended, skip next seat rest timer.
-        ch.seatTimer = -1;
-        ch.path = [];
-        ch.moveProgress = 0;
-        // Queue: go to restSeat if available
-        if (ch.restSeatId && this.seats.has(ch.restSeatId)) {
-          ch.behaviorQueue.push({ seatId: ch.restSeatId, action: 'rest' });
+    if (!ch) return;
+    if (ch.isActive === active) return;
+    ch.isActive = active;
+
+    if (active) {
+      // Real-agent → play "report to boss" animation, then fall through to work
+      // when a tool starts (setAgentTool overwrites the queue again).
+      const steps: BehaviorStep[] = [];
+      if (ch.reportToKey) {
+        const bossProfile = DEFAULT_PROFILES[ch.reportToKey];
+        const bossSeat = bossProfile ? this.seats.get(bossProfile.workSeat) : null;
+        if (bossSeat) {
+          const reportStep = this.stepToSeatAdjacent(bossSeat, 'report');
+          if (reportStep) steps.push(reportStep);
         }
       }
-      this.rebuildFurnitureInstances();
+      this.playAnimation(ch, steps);
+    } else {
+      // Sentinel -1: signals turn just ended, skip next seat rest timer.
+      ch.seatTimer = -1;
+      ch.path = [];
+      ch.moveProgress = 0;
+
+      // DUT finished → announce in place, secretary broadcasts to boss.
+      // No walking handoff — zero timing issues.
+      if (ch.role === AgentRole.DUT) {
+        const dutName = ch.folderName ?? `DUT-${ch.id}`;
+        this.showTextBubble(
+          ch.id, `${dutName}：任務完成`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
+        );
+        const secretary = this.findNpcByType('secretary');
+        if (secretary) {
+          this.showTextBubble(
+            secretary.id, `${dutName} 已完成任務`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
+          );
+        }
+      }
+      const steps: BehaviorStep[] = [];
+      if (ch.restSeatId && this.seats.has(ch.restSeatId)) {
+        steps.push({ seatId: ch.restSeatId, action: 'rest' });
+      }
+      this.playAnimation(ch, steps);
     }
+    this.rebuildFurnitureInstances();
   }
 
   /** Rebuild furniture instances with auto-state applied (active agents turn electronics ON) */
@@ -873,8 +904,10 @@ export class OfficeState {
   // ── NPC behavior constants ──────────────────────────────────────────────
   private static readonly PM_PATROL_COOLDOWN_SEC = 30;
   private static readonly PM_PATROL_STAY_SEC = 5;
-  private static readonly SECRETARY_DISPATCH_TEXT = '老闆，目前沒有可用 DUT';
+  private static readonly SECRETARY_NO_DUT_TEXT = '老闆，目前沒有可用 DUT';
   private static readonly TEXT_BUBBLE_DURATION_SEC = 5;
+  private static readonly BUNNY_SERVICE_COOLDOWN_SEC = 45;
+  private static readonly BUNNY_COFFEE_COOLDOWN_SEC = 30;
 
   /** Tick NPC-specific behaviors (secretary, PM, bunny) */
   private updateNpcBehaviors(dt: number): void {
@@ -889,53 +922,103 @@ export class OfficeState {
         case 'pm':
           this.tickPm(ch, dt);
           break;
-        // bunny: handled by normal wander with wanderArea constraint
+        case 'bunny':
+          this.tickBunny(ch, dt);
+          break;
       }
     }
   }
 
+  /**
+   * Observer-style secretary tick — "live commentator at her seat".
+   *
+   * The secretary never walks to dispatch or collect results. She stays at her
+   * seat and broadcasts the situation in real-time via speech bubbles:
+   *   - Boss goes active + idle DUT exists → 「派遣 XXX 執行任務」
+   *   - Boss active but no DUT → 「老闆，目前沒有可用 DUT」
+   *
+   * The "DUT completed" announcement is triggered instantly from setAgentActive
+   * (when DUT goes inactive), not from the tick — zero time lag.
+   */
   private tickSecretary(ch: Character, _dt: number): void {
-    // Secretary reacts when Boss becomes active: find an idle DUT and dispatch
-    if (ch.behaviorQueue.length > 0) return;
-    if (ch.state !== CharacterState.IDLE && ch.state !== CharacterState.TYPE) return;
-
-    // Find boss character
     const boss = this.findCharacterByRole(AgentRole.BOSS);
-    if (!boss || !boss.isActive) return;
+    if (!boss?.isActive) return;
+    if (ch.bubbleType) return;
 
-    // Boss is active — find an idle (not active) DUT
     const idleDut = this.findIdleDut();
-    if (!idleDut) {
-      // No DUT available — show warning bubble (once per boss activation)
-      if (!ch.bubbleType) {
-        this.showTextBubble(ch.id, OfficeState.SECRETARY_DISPATCH_TEXT, OfficeState.TEXT_BUBBLE_DURATION_SEC);
-      }
+    if (idleDut) {
+      const dutName = idleDut.folderName ?? `DUT-${idleDut.id}`;
+      this.showTextBubble(
+        ch.id, `派遣 ${dutName} 執行任務`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
+      );
       return;
     }
 
-    // Walk to DUT, show dispatch bubble, then return to own seat
-    const dutSeat = idleDut.seatId ? this.seats.get(idleDut.seatId) : null;
-    const target = dutSeat
-      ? findAdjacentWalkable(dutSeat.seatCol, dutSeat.seatRow, this.tileMap, this.blockedTiles)
-      : null;
+    this.showTextBubble(
+      ch.id, OfficeState.SECRETARY_NO_DUT_TEXT, OfficeState.TEXT_BUBBLE_DURATION_SEC,
+    );
+  }
 
-    if (target) {
-      const dc = (dutSeat?.seatCol ?? target.col) - target.col;
-      const dr = (dutSeat?.seatRow ?? target.row) - target.row;
-      let facingDir: Direction;
-      if (Math.abs(dc) >= Math.abs(dr)) {
-        facingDir = dc > 0 ? Direction.RIGHT : Direction.LEFT;
-      } else {
-        facingDir = dr > 0 ? Direction.DOWN : Direction.UP;
-      }
-      ch.behaviorQueue.push({ tile: target, facingDir, action: 'dispatch' });
+  /**
+   * Observer-style bunny tick.
+   *
+   * Periodically picks an active DUT that hasn't been served recently and plays
+   * a "walk over → serve coffee" animation. If the situation changes mid-walk,
+   * the next interruption (e.g. DUT disconnects) just overwrites the queue —
+   * the bunny doesn't track "in-progress deliveries".
+   */
+  private tickBunny(ch: Character, dt: number): void {
+    // While executing an animation, wait it out.
+    if (ch.behaviorQueue.length > 0) return;
+
+    // First-time init: don't serve immediately on spawn.
+    if (ch.npcTimer === undefined) ch.npcTimer = OfficeState.BUNNY_SERVICE_COOLDOWN_SEC;
+    ch.npcTimer -= dt;
+    if (ch.npcTimer > 0) return;
+
+    const target = this.pickCoffeeTarget();
+    if (!target) {
+      // Nobody to serve — stay in wander mode, retry after half a cooldown.
+      ch.npcTimer = OfficeState.BUNNY_SERVICE_COOLDOWN_SEC / 2;
+      return;
     }
 
-    // After dispatch, return to own seat
-    const profile = ch.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
-    if (profile) {
-      ch.behaviorQueue.push({ seatId: profile.workSeat, action: 'rest' });
+    const dutSeat = target.seatId ? this.seats.get(target.seatId) : null;
+    if (!dutSeat) {
+      ch.npcTimer = OfficeState.BUNNY_SERVICE_COOLDOWN_SEC / 2;
+      return;
     }
+    const serveStep = this.stepToSeatAdjacent(dutSeat, 'dispatch');
+    if (!serveStep) {
+      ch.npcTimer = OfficeState.BUNNY_SERVICE_COOLDOWN_SEC / 2;
+      return;
+    }
+
+    // Mark the DUT as served NOW — even if the bunny never arrives, we won't
+    // spam-select the same DUT on every tick.
+    target.lastCoffeeTs = performance.now();
+
+    const dutName = target.folderName ?? `DUT-${target.id}`;
+    this.playAnimation(ch, [
+      { ...serveStep, bubbleText: `請享用 ☕ ${dutName}` },
+    ]);
+    ch.npcTimer = OfficeState.BUNNY_SERVICE_COOLDOWN_SEC;
+  }
+
+  /** Pick an active DUT that hasn't had coffee recently. */
+  private pickCoffeeTarget(): Character | null {
+    const now = performance.now();
+    const cooldownMs = OfficeState.BUNNY_COFFEE_COOLDOWN_SEC * 1000;
+    const candidates: Character[] = [];
+    for (const ch of this.characters.values()) {
+      if (ch.role !== AgentRole.DUT) continue;
+      if (!ch.isActive) continue;
+      if (ch.matrixEffect) continue;
+      if (ch.lastCoffeeTs !== undefined && now - ch.lastCoffeeTs < cooldownMs) continue;
+      candidates.push(ch);
+    }
+    if (candidates.length === 0) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)];
   }
 
   private tickPm(ch: Character, dt: number): void {
@@ -982,19 +1065,20 @@ export class OfficeState {
   private pmWalkToDut(ch: Character, dut: Character): void {
     const dutSeat = dut.seatId ? this.seats.get(dut.seatId) : null;
     if (!dutSeat) return;
-    const target = findAdjacentWalkable(dutSeat.seatCol, dutSeat.seatRow, this.tileMap, this.blockedTiles);
-    if (!target) return;
-    const dc = dutSeat.seatCol - target.col;
-    const dr = dutSeat.seatRow - target.row;
-    const facingDir: Direction = Math.abs(dc) >= Math.abs(dr)
-      ? (dc > 0 ? Direction.RIGHT : Direction.LEFT)
-      : (dr > 0 ? Direction.DOWN : Direction.UP);
-    ch.behaviorQueue.push({ tile: target, facingDir, action: 'patrol' });
+    const step = this.stepToSeatAdjacent(dutSeat, 'patrol');
+    if (step) this.playAnimation(ch, [step]);
   }
 
   private findCharacterByRole(role: AgentRole): Character | null {
     for (const ch of this.characters.values()) {
       if (ch.role === role) return ch;
+    }
+    return null;
+  }
+
+  private findNpcByType(npcType: 'secretary' | 'pm' | 'bunny'): Character | null {
+    for (const ch of this.characters.values()) {
+      if (ch.npcType === npcType) return ch;
     }
     return null;
   }

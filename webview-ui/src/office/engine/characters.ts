@@ -164,6 +164,13 @@ function processNextBehavior(
 function applyBehaviorAction(ch: Character, step: BehaviorStep, facingDir: Direction): void {
   ch.frame = 0;
   ch.frameTimer = 0;
+  // Observer-style: the step can carry its own arrival subtitle.
+  // This avoids scattering flag bookkeeping across officeState.
+  if (step.bubbleText) {
+    ch.bubbleType = 'text';
+    ch.bubbleText = step.bubbleText;
+    ch.bubbleTimer = 5;
+  }
   switch (step.action) {
     case 'report':
       ch.state = CharacterState.REPORT;

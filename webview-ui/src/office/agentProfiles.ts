@@ -83,7 +83,7 @@ export const ROOM_BOUNDS: Record<string, RoomBounds> = {
   [RoomId.LOBBY]: { colMin: 0, colMax: 20, rowMin: 14, rowMax: 27 },
   [RoomId.WAR_ROOM]: { colMin: 21, colMax: 31, rowMin: 14, rowMax: 27 },
   'lobby-bar': { colMin: 1, colMax: 2, rowMin: 15, rowMax: 20 },
-  ['lobby-seat']: { colMin: 3, colMax: 20, rowMin: 15, rowMax: 17 }
+  ['lobby-seat']: { colMin: 4, colMax: 15, rowMin: 15, rowMax: 21 }
 };
 
 // ── Default profiles ─────────────────────────────────────────────────────────
@@ -147,7 +147,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     room: RoomId.LOBBY,
     workSeat: '',
     wanderArea: 'lobby-seat',
-    sprite: 11,
+    sprite: 14,
     spawnTile: { col: 8, row: 16 },
   },
   npc_bunny4: {
@@ -157,7 +157,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     room: RoomId.LOBBY,
     workSeat: '',
     wanderArea: 'lobby-seat',
-    sprite: 11,
+    sprite: 15,
     spawnTile: { col: 14, row: 15 },
   },
 };

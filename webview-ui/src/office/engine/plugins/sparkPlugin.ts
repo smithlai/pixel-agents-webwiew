@@ -12,6 +12,7 @@ import {
   SPARK_VY_RANGE,
 } from '../../../constants.js';
 import { TILE_SIZE } from '../../types.js';
+import type { Character } from '../../types.js';
 import type { RenderContext, RenderPlugin } from './types.js';
 
 interface SparkParticle {
@@ -29,9 +30,24 @@ const sparks: SparkParticle[] = [];
 const lastSpawnTimes = new Map<string, number>();
 let lastUpdateMs = 0;
 
-function isSparkEmitter(type: string | undefined): boolean {
-  if (!type) return false;
-  return type.startsWith('ROBOT_ARM');
+function isSparkEmitter(
+  item: { type?: string; x: number; y: number },
+  characters: Character[],
+): boolean {
+  if (!item.type?.startsWith('ROBOT_ARM')) return false;
+  // Only emit when an active agent is near the base.
+  // ROBOT_ARM footprint = 4×2. Check the middle cols (col+1, col+2) at and
+  // just below the base row (row+1, row+2) — that's where chairs will be.
+  const itemCol = Math.floor(item.x / TILE_SIZE);
+  const itemRow = Math.floor(item.y / TILE_SIZE);
+  for (const ch of characters) {
+    if (!ch.isActive) continue;
+    if (ch.tileCol >= itemCol + 1 && ch.tileCol <= itemCol + 2 &&
+        ch.tileRow >= itemRow + 1 && ch.tileRow <= itemRow + 2) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function getSparkOrigin(item: { x: number; y: number }): { x: number; y: number } {
@@ -58,15 +74,15 @@ function spawnSpark(ox: number, oy: number): void {
 export const sparkPlugin: RenderPlugin = {
   name: 'sparks',
   layer: 'afterScene',
-  render({ ctx, furniture, offsetX, offsetY, zoom }: RenderContext): void {
+  render({ ctx, furniture, characters, offsetX, offsetY, zoom }: RenderContext): void {
     const now = Date.now();
     const dt = lastUpdateMs > 0 ? Math.min((now - lastUpdateMs) / 1000, 0.1) : 0;
     lastUpdateMs = now;
 
-    // Spawn sparks from emitters
+    // Spawn sparks from emitters (only when an active agent is at the base)
     if (sparks.length < SPARK_MAX_COUNT) {
       for (const item of furniture) {
-        if (!isSparkEmitter(item.type)) continue;
+        if (!isSparkEmitter(item, characters)) continue;
         const key = `${item.x}:${item.y}`;
         const last = lastSpawnTimes.get(key) ?? 0;
         if (now - last >= SPARK_SPAWN_INTERVAL_MS && Math.random() < SPARK_SPAWN_CHANCE) {

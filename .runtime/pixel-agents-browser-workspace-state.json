@@ -173,10 +173,10 @@
       255,
       0,
       3,
-      3,
-      3,
-      3,
-      3,
+      5,
+      5,
+      5,
+      5,
       3,
       3,
       3,
@@ -6182,7 +6182,7 @@
         "uid": "f-1776172435310-1auv",
         "type": "ROBOT_ARM",
         "col": 1,
-        "row": 5
+        "row": 4
       },
       {
         "uid": "f-1776172451292-838a",
@@ -6253,7 +6253,7 @@
       {
         "uid": "f-1776175258056-a6dq",
         "type": "WHITEBOARD",
-        "col": 5,
+        "col": 1,
         "row": 3
       },
       {
@@ -6290,7 +6290,7 @@
         "uid": "f-1776175893737-a7db",
         "type": "BIN",
         "col": 4,
-        "row": 6
+        "row": 5
       },
       {
         "uid": "f-1776301628304-9gkw",
@@ -6355,7 +6355,7 @@
       {
         "uid": "f-1776302442745-dn21",
         "type": "DOUBLE_BOOKSHELF",
-        "col": 1,
+        "col": 5,
         "row": 3
       },
       {
@@ -6435,6 +6435,30 @@
         "type": "WOODEN_CHAIR_SIDE",
         "col": 28,
         "row": 20
+      },
+      {
+        "uid": "f-1776380982169-5vbj",
+        "type": "WOODEN_BENCH",
+        "col": 2,
+        "row": 6
+      },
+      {
+        "uid": "f-1776380988613-44yf",
+        "type": "WOODEN_BENCH",
+        "col": 2,
+        "row": 9
+      },
+      {
+        "uid": "f-1776380990678-nmqx",
+        "type": "WOODEN_BENCH",
+        "col": 3,
+        "row": 9
+      },
+      {
+        "uid": "f-1776380991967-g4sc",
+        "type": "WOODEN_BENCH",
+        "col": 3,
+        "row": 6
       }
     ]
   }
