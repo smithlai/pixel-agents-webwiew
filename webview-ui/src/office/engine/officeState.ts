@@ -55,6 +55,10 @@ export class OfficeState {
   subagentIdMap: Map<string, number> = new Map();
   /** Reverse lookup: sub-agent character ID → parent info */
   subagentMeta: Map<number, { parentAgentId: number; parentToolId: string }> = new Map();
+  /** Ambient chat cooldown (seconds) per character */
+  private ambientChatCooldownSec: Map<number, number> = new Map();
+  /** DUT ids that have actually started work at least once */
+  private workedDutIds: Set<number> = new Set();
   private nextSubagentId = -1;
 
   constructor(layout?: OfficeLayout) {
@@ -704,6 +708,12 @@ export class OfficeState {
    */
   private playAnimation(ch: Character, steps: BehaviorStep[]): void {
     ch.behaviorQueue = steps;
+    // Keep only the immediate next tile (path[0]) so the character finishes
+    // the current tile-to-tile lerp without teleporting, then the FSM picks
+    // up the new behaviorQueue.  Discard the rest of the old route.
+    if (ch.path.length > 1) {
+      ch.path.length = 1;
+    }
   }
 
   /**
@@ -725,30 +735,38 @@ export class OfficeState {
     const ch = this.characters.get(id);
     if (!ch) return;
     if (ch.isActive === active) return;
+
+    if (active && ch.role === AgentRole.DUT) {
+      this.workedDutIds.add(ch.id);
+    }
+
     ch.isActive = active;
 
     if (active) {
-      // Real-agent → play "report to boss" animation, then fall through to work
-      // when a tool starts (setAgentTool overwrites the queue again).
+      // Go to work seat — no report-to-boss detour.
       const steps: BehaviorStep[] = [];
-      if (ch.reportToKey) {
-        const bossProfile = DEFAULT_PROFILES[ch.reportToKey];
-        const bossSeat = bossProfile ? this.seats.get(bossProfile.workSeat) : null;
-        if (bossSeat) {
-          const reportStep = this.stepToSeatAdjacent(bossSeat, 'report');
-          if (reportStep) steps.push(reportStep);
-        }
+      if (ch.seatId && this.seats.has(ch.seatId)) {
+        steps.push({ seatId: ch.seatId, action: 'work' });
       }
       this.playAnimation(ch, steps);
+
+      // DUT dispatched → secretary announces (event-driven, not polled)
+      if (ch.role === AgentRole.DUT) {
+        const secretary = this.findNpcByType('secretary');
+        if (secretary) {
+          const dutName = ch.folderName ?? `DUT-${ch.id}`;
+          this.showTextBubble(
+            secretary.id, `派遣 ${dutName} 執行任務`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
+          );
+        }
+      }
     } else {
       // Sentinel -1: signals turn just ended, skip next seat rest timer.
       ch.seatTimer = -1;
-      ch.path = [];
-      ch.moveProgress = 0;
 
       // DUT finished → announce in place, secretary broadcasts to boss.
       // No walking handoff — zero timing issues.
-      if (ch.role === AgentRole.DUT) {
+      if (ch.role === AgentRole.DUT && this.workedDutIds.has(ch.id)) {
         const dutName = ch.folderName ?? `DUT-${ch.id}`;
         this.showTextBubble(
           ch.id, `${dutName}：任務完成`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
@@ -841,17 +859,6 @@ export class OfficeState {
     const ch = this.characters.get(id);
     if (ch) {
       ch.currentTool = tool;
-      // When a tool starts and agent is in report phase → send to workSeat
-      if (tool && ch.seatId) {
-        const isReporting = ch.state === CharacterState.REPORT;
-        const hasReportInQueue = ch.behaviorQueue.some((b) => b.action === 'report');
-        if (isReporting || hasReportInQueue) {
-          // Clear report queue and go straight to work
-          ch.behaviorQueue = [{ seatId: ch.seatId, action: 'work' }];
-          // If currently in REPORT, the update loop will pick up the queue
-          // If still walking to report, let the walk finish then the queue processes
-        }
-      }
     }
   }
 
@@ -904,10 +911,28 @@ export class OfficeState {
   // ── NPC behavior constants ──────────────────────────────────────────────
   private static readonly PM_PATROL_COOLDOWN_SEC = 30;
   private static readonly PM_PATROL_STAY_SEC = 5;
-  private static readonly SECRETARY_NO_DUT_TEXT = '老闆，目前沒有可用 DUT';
   private static readonly TEXT_BUBBLE_DURATION_SEC = 5;
   private static readonly BUNNY_SERVICE_COOLDOWN_SEC = 45;
   private static readonly BUNNY_COFFEE_COOLDOWN_SEC = 30;
+  private static readonly AMBIENT_CHAT_MIN_SEC = 18;
+  private static readonly AMBIENT_CHAT_RANGE_SEC = 20;
+  private static readonly AMBIENT_CHAT_DURATION_SEC = 4;
+
+  private static readonly BOSS_AMBIENT_LINES = [
+    '先把今天的節點風險掃過一輪。',
+    '各位，穩定優先，速度第二。',
+    '記錄留完整，回溯才會輕鬆。',
+  ] as const;
+  private static readonly SECRETARY_AMBIENT_LINES = [
+    '本日待辦已整理，隨時可派工。',
+    '會議與測試時段都在排程中。',
+    '若要調整優先順序，請直接告知。',
+  ] as const;
+  private static readonly PM_AMBIENT_LINES = [
+    '需求切分正在更新最新版本。',
+    '目前風險可控，持續追蹤中。',
+    '我先整理下一輪驗證清單。',
+  ] as const;
 
   /** Tick NPC-specific behaviors (secretary, PM, bunny) */
   private updateNpcBehaviors(dt: number): void {
@@ -930,33 +955,14 @@ export class OfficeState {
   }
 
   /**
-   * Observer-style secretary tick — "live commentator at her seat".
+   * Secretary tick — now purely passive.
    *
-   * The secretary never walks to dispatch or collect results. She stays at her
-   * seat and broadcasts the situation in real-time via speech bubbles:
-   *   - Boss goes active + idle DUT exists → 「派遣 XXX 執行任務」
-   *   - Boss active but no DUT → 「老闆，目前沒有可用 DUT」
-   *
-   * The "DUT completed" announcement is triggered instantly from setAgentActive
-   * (when DUT goes inactive), not from the tick — zero time lag.
+   * All announcements (dispatch / completion) are event-driven from
+   * setAgentActive, not polled here.  The tick is kept as a hook for
+   * future idle behaviors if needed, but currently does nothing.
    */
-  private tickSecretary(ch: Character, _dt: number): void {
-    const boss = this.findCharacterByRole(AgentRole.BOSS);
-    if (!boss?.isActive) return;
-    if (ch.bubbleType) return;
-
-    const idleDut = this.findIdleDut();
-    if (idleDut) {
-      const dutName = idleDut.folderName ?? `DUT-${idleDut.id}`;
-      this.showTextBubble(
-        ch.id, `派遣 ${dutName} 執行任務`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
-      );
-      return;
-    }
-
-    this.showTextBubble(
-      ch.id, OfficeState.SECRETARY_NO_DUT_TEXT, OfficeState.TEXT_BUBBLE_DURATION_SEC,
-    );
+  private tickSecretary(_ch: Character, _dt: number): void {
+    // Intentionally empty — secretary announcements are event-driven.
   }
 
   /**
@@ -1069,23 +1075,9 @@ export class OfficeState {
     if (step) this.playAnimation(ch, [step]);
   }
 
-  private findCharacterByRole(role: AgentRole): Character | null {
-    for (const ch of this.characters.values()) {
-      if (ch.role === role) return ch;
-    }
-    return null;
-  }
-
   private findNpcByType(npcType: 'secretary' | 'pm' | 'bunny'): Character | null {
     for (const ch of this.characters.values()) {
       if (ch.npcType === npcType) return ch;
-    }
-    return null;
-  }
-
-  private findIdleDut(): Character | null {
-    for (const ch of this.characters.values()) {
-      if (ch.role === AgentRole.DUT && !ch.isActive && !ch.matrixEffect) return ch;
     }
     return null;
   }
@@ -1096,6 +1088,48 @@ export class OfficeState {
       if (ch.role === AgentRole.DUT && ch.isActive && !ch.matrixEffect) result.push(ch);
     }
     return result;
+  }
+
+  /** Lightweight ambient chatter: speech bubbles only, no status/tool side effects. */
+  private tickAmbientChat(dt: number): void {
+    for (const ch of this.characters.values()) {
+      if (ch.isSubagent || ch.matrixEffect) continue;
+      if (ch.bubbleType) continue;
+      if (ch.isActive) continue;
+
+      const prev = this.ambientChatCooldownSec.get(ch.id);
+      if (prev === undefined) {
+        const seeded =
+          OfficeState.AMBIENT_CHAT_MIN_SEC
+          + Math.random() * OfficeState.AMBIENT_CHAT_RANGE_SEC;
+        this.ambientChatCooldownSec.set(ch.id, seeded);
+        continue;
+      }
+
+      const next = prev - dt;
+      if (next > 0) {
+        this.ambientChatCooldownSec.set(ch.id, next);
+        continue;
+      }
+
+      const lines = this.getAmbientLines(ch);
+      if (lines.length > 0) {
+        const text = lines[Math.floor(Math.random() * lines.length)];
+        this.showTextBubble(ch.id, text, OfficeState.AMBIENT_CHAT_DURATION_SEC);
+      }
+
+      const reset =
+        OfficeState.AMBIENT_CHAT_MIN_SEC
+        + Math.random() * OfficeState.AMBIENT_CHAT_RANGE_SEC;
+      this.ambientChatCooldownSec.set(ch.id, reset);
+    }
+  }
+
+  private getAmbientLines(ch: Character): readonly string[] {
+    if (ch.role === AgentRole.BOSS) return OfficeState.BOSS_AMBIENT_LINES;
+    if (ch.npcType === 'secretary') return OfficeState.SECRETARY_AMBIENT_LINES;
+    if (ch.npcType === 'pm') return OfficeState.PM_AMBIENT_LINES;
+    return [];
   }
 
   update(dt: number): void {
@@ -1143,6 +1177,8 @@ export class OfficeState {
 
     // NPC behavior tick (secretary dispatch, PM patrol, etc.)
     this.updateNpcBehaviors(dt);
+    // Ambient chatter tick (speech bubbles only; does not affect status panel)
+    this.tickAmbientChat(dt);
 
     // Reap orphaned sub-agents whose parent is gone or no longer active.
     // This is the safety net for crash/disconnect scenarios where the
@@ -1152,6 +1188,8 @@ export class OfficeState {
     // Remove characters that finished despawn
     for (const id of toDelete) {
       this.characters.delete(id);
+      this.ambientChatCooldownSec.delete(id);
+      this.workedDutIds.delete(id);
     }
   }
 
