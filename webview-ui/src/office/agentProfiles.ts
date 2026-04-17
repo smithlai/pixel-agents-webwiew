@@ -255,3 +255,24 @@ export function isNpcProfile(key: string): boolean {
 export function getNpcProfiles(): Array<[string, AgentProfile]> {
   return Object.entries(DEFAULT_PROFILES).filter(([key]) => key.startsWith('npc_'));
 }
+
+/**
+ * 背景 NPC 僅用於場景氛圍，不應出現在控制型 UI。
+ */
+export function isBackgroundNpcProfile(profile: AgentProfile | null | undefined): boolean {
+  return profile?.npcType === 'bunny';
+}
+
+/**
+ * 控制右側狀態面板是否顯示該角色。
+ */
+export function shouldShowAgentInStatusPanel(profile: AgentProfile | null | undefined): boolean {
+  return profile?.npcType !== 'bunny' && profile?.npcType !== 'pm';
+}
+
+/**
+ * 控制畫布上的常駐名字標籤是否顯示。
+ */
+export function shouldShowAgentNameTag(profile: AgentProfile | null | undefined): boolean {
+  return !isBackgroundNpcProfile(profile);
+}

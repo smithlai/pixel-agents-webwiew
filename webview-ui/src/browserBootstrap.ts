@@ -47,9 +47,9 @@ interface MockPayload {
 let mockPayload: MockPayload | null = null;
 
 /**
- * Enable/disable mock agents (PM, Analyst, Tester, Tester2, Tester3).
+ * Enable/disable mock background NPCs.
  * Persisted in localStorage so the Settings UI can toggle it without code changes.
- * Boss (ID 100) is always present regardless of this flag.
+ * Boss / 秘書 / PM are always present regardless of this flag; only bunny NPCs follow it.
  */
 export const ENABLE_MOCK_AGENTS = localStorage.getItem('mockAgentsEnabled') === 'true';
 
@@ -376,18 +376,20 @@ export async function dispatchMockMessages(): Promise<void> {
   const BUNNY3_ID = 105;
   const BUNNY4_ID = 106;
 
-  // Boss is always present; NPC mock agents gate on ENABLE_MOCK_AGENTS
-  const mockAgentIds: number[] = [BOSS_ID];
+  // Boss / 秘書 / PM are always present; bunny NPCs gate on ENABLE_MOCK_AGENTS
+  const mockAgentIds: number[] = [BOSS_ID, SECRETARY_ID, PM_ID];
   const mockMeta: Record<number, { seatId: string; palette?: number }> = {
     [BOSS_ID]: { seatId: profiles.boss.workSeat },
+    [SECRETARY_ID]: { seatId: profiles.npc_secretary.workSeat, palette: profiles.npc_secretary.sprite },
+    [PM_ID]: { seatId: profiles.npc_pm.workSeat, palette: profiles.npc_pm.sprite },
   };
   const mockNames: Record<number, string> = {
     [BOSS_ID]: profiles.boss.name,
+    [SECRETARY_ID]: 'npc_secretary',
+    [PM_ID]: 'npc_pm',
   };
   if (ENABLE_MOCK_AGENTS) {
     const npcEntries: Array<[number, string]> = [
-      [SECRETARY_ID, 'npc_secretary'],
-      [PM_ID, 'npc_pm'],
       [BUNNY1_ID, 'npc_bunny1'],
       [BUNNY2_ID, 'npc_bunny2'],
       [BUNNY3_ID, 'npc_bunny3'],

@@ -1,7 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 
 import type { DeviceInfo, SubagentCharacter } from '../hooks/useExtensionMessages.js';
-import { DEFAULT_PROFILES, getRoomDisplayName } from '../office/agentProfiles.js';
+import {
+  DEFAULT_PROFILES,
+  getRoomDisplayName,
+  shouldShowAgentInStatusPanel,
+} from '../office/agentProfiles.js';
 import type { OfficeState } from '../office/engine/officeState.js';
 import type { ToolActivity } from '../office/types.js';
 
@@ -46,6 +50,7 @@ function getActivityText(
   agentTools: Record<number, ToolActivity[]>,
   isActive: boolean,
 ): string {
+  if (!isActive) return 'Idle';
   const tools = agentTools[agentId];
   if (tools && tools.length > 0) {
     const activeTool = [...tools].reverse().find((t) => !t.done);
@@ -53,10 +58,8 @@ function getActivityText(
       if (activeTool.permissionWait) return 'Needs approval';
       return activeTool.status;
     }
-    if (isActive) {
-      const lastTool = tools[tools.length - 1];
-      if (lastTool) return lastTool.status;
-    }
+    const lastTool = tools[tools.length - 1];
+    if (lastTool) return lastTool.status;
   }
   return 'Idle';
 }
@@ -165,7 +168,7 @@ function AgentCard({
   const profile = ch.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
   const name = isSub
     ? (sub?.name ?? `Agent ${id}`)
-    : ch.folderName ?? profile?.name ?? `Agent ${id}`;
+    : profile?.name ?? ch.folderName ?? `Agent ${id}`;
   const modelLabel = profile?.model;
   const roomLabel = profile ? getRoomDisplayName(profile) : null;
 
@@ -333,7 +336,13 @@ export function AgentStatusPanel({
   subagentCharacters,
   deviceInfo,
 }: AgentStatusPanelProps) {
-  const historyMap = useActivityHistory(agents, agentTools, subagentCharacters, officeState);
+  const visibleAgents = agents.filter((id) => {
+    const ch = officeState.characters.get(id);
+    const profile = ch?.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
+    return shouldShowAgentInStatusPanel(profile);
+  });
+
+  const historyMap = useActivityHistory(visibleAgents, agentTools, subagentCharacters, officeState);
 
   const [panelWidth, setPanelWidth] = useState(PANEL_DEFAULT_WIDTH);
   const isDraggingRef = useRef(false);
@@ -360,7 +369,7 @@ export function AgentStatusPanel({
     isDraggingRef.current = false;
   }, []);
 
-  if (agents.length === 0 && subagentCharacters.length === 0) return null;
+  if (visibleAgents.length === 0 && subagentCharacters.length === 0) return null;
 
   // Group sub-agents by parentAgentId
   const subsByParent = new Map<number, SubagentCharacter[]>();
@@ -413,7 +422,7 @@ export function AgentStatusPanel({
       >
         Agent Status
       </div>
-      {agents.map((parentId) => {
+      {visibleAgents.map((parentId) => {
         const children = subsByParent.get(parentId) ?? [];
         return (
           <div key={parentId} style={{ borderBottom: '1px solid var(--color-border)' }}>

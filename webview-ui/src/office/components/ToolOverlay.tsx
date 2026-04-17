@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { CHARACTER_SITTING_OFFSET_PX, TOOL_OVERLAY_VERTICAL_OFFSET } from '../../constants.js';
+import {
+  CHARACTER_SITTING_OFFSET_PX,
+  TOOL_OVERLAY_ACTIVITY_FONT_PX,
+  TOOL_OVERLAY_ACTIVITY_PADDING_X_PX,
+  TOOL_OVERLAY_ACTIVITY_PADDING_Y_PX,
+  TOOL_OVERLAY_NAME_FONT_PX,
+  TOOL_OVERLAY_SUB_NAME_FONT_PX,
+  TOOL_OVERLAY_VERTICAL_OFFSET,
+} from '../../constants.js';
 import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js';
+import { DEFAULT_PROFILES, shouldShowAgentNameTag } from '../agentProfiles.js';
 import type { OfficeState } from '../engine/officeState.js';
 import type { ToolActivity } from '../types.js';
 import { CharacterState, TILE_SIZE } from '../types.js';
@@ -24,21 +33,17 @@ function getActivityText(
   agentTools: Record<number, ToolActivity[]>,
   isActive: boolean,
 ): string {
+  if (!isActive) return 'Idle';
   const tools = agentTools[agentId];
   if (tools && tools.length > 0) {
-    // Find the latest non-done tool
     const activeTool = [...tools].reverse().find((t) => !t.done);
     if (activeTool) {
       if (activeTool.permissionWait) return 'Needs approval';
       return activeTool.status;
     }
-    // All tools done but agent still active (mid-turn) — keep showing last tool status
-    if (isActive) {
-      const lastTool = tools[tools.length - 1];
-      if (lastTool) return lastTool.status;
-    }
+    const lastTool = tools[tools.length - 1];
+    if (lastTool) return lastTool.status;
   }
-
   return 'Idle';
 }
 
@@ -92,12 +97,19 @@ export function ToolOverlay({
         const ch = officeState.characters.get(id);
         if (!ch) return null;
 
+        const profile = ch.profileKey ? DEFAULT_PROFILES[ch.profileKey] : null;
+        if (!ch.isSubagent && !shouldShowAgentNameTag(profile)) {
+          return null;
+        }
+
         const isSelected = selectedId === id;
         const isHovered = hoveredId === id;
         const isSub = ch.isSubagent;
+        const hasTextBubble = ch.bubbleType === 'text' && !!ch.bubbleText;
 
-        // Only show for hovered or selected agents (unless always-show is on)
-        if (!alwaysShowOverlay && !isSelected && !isHovered) return null;
+        // Only show for hovered/selected agents (unless always-show is on).
+        // Text bubbles force visibility so ambient chat can always be seen.
+        if (!alwaysShowOverlay && !isSelected && !isHovered && !hasTextBubble) return null;
 
         // Position above character
         const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0;
@@ -132,7 +144,8 @@ export function ToolOverlay({
         // Permanent display name — separate from the temporary activity text
         const displayName = isSub
           ? (subagentCharacters.find((s) => s.id === id)?.name ?? 'Subtask')
-          : (ch.folderName ?? `Agent ${id}`);
+          : (profile?.name ?? ch.folderName ?? `Agent ${id}`);
+        const textBubbleMessage = hasTextBubble ? (ch.bubbleText ?? '') : '';
 
         // Determine dot color
         const tools = agentTools[id];
@@ -165,18 +178,60 @@ export function ToolOverlay({
               zIndex: isSelected ? 'var(--pixel-overlay-selected-z)' : 'var(--pixel-overlay-z)',
             }}
           >
+            {/* Text bubble from OfficeState (DOM-only for consistent font/layout) */}
+            {hasTextBubble && (
+              <div
+                style={{
+                  background: 'rgba(10, 10, 20, 0.88)',
+                  border: '1px solid var(--color-border)',
+                  padding: `${TOOL_OVERLAY_ACTIVITY_PADDING_Y_PX}px ${TOOL_OVERLAY_ACTIVITY_PADDING_X_PX}px`,
+                  maxWidth: 360,
+                  minWidth: 160,
+                  fontSize: `${TOOL_OVERLAY_ACTIVITY_FONT_PX}px`,
+                  color: 'var(--color-text)',
+                  boxShadow: 'var(--shadow-pixel)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 4,
+                }}
+              >
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.22)' }} />
+                <div
+                  style={{
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {displayName}
+                </div>
+                <div
+                  style={{
+                    lineHeight: 1.35,
+                    whiteSpace: 'normal',
+                    overflowWrap: 'anywhere',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {textBubbleMessage}
+                </div>
+                <div style={{ borderBottom: '1px solid rgba(255,255,255,0.22)' }} />
+              </div>
+            )}
             {/* Activity bubble — auto-hides 5s after last change */}
-            {showActivityText && (
+            {showActivityText && !hasTextBubble && (
               <div
                 style={{
                   background: 'rgba(10, 10, 20, 0.72)',
                   border: '1px solid var(--color-border)',
-                  padding: '2px 7px',
+                  padding: `${TOOL_OVERLAY_ACTIVITY_PADDING_Y_PX}px ${TOOL_OVERLAY_ACTIVITY_PADDING_X_PX}px`,
                   maxWidth: 240,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  fontSize: '10px',
+                  fontSize: `${TOOL_OVERLAY_ACTIVITY_FONT_PX}px`,
                   color: 'var(--color-text)',
                   boxShadow: 'var(--shadow-pixel)',
                 }}
@@ -184,78 +239,80 @@ export function ToolOverlay({
                 {activityText}
               </div>
             )}
-            {/* Name tag — permanent */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                background: 'var(--color-bg)',
-                border: isSelected
-                  ? '2px solid var(--color-border-light)'
-                  : '2px solid var(--color-border)',
-                borderRadius: 0,
-                padding: isSelected ? '3px 6px 3px 8px' : '3px 8px',
-                boxShadow: 'var(--shadow-pixel)',
-                whiteSpace: 'nowrap',
-                maxWidth: 220,
-              }}
-            >
-              {dotColor && (
-                <span
-                  className={isActive && !hasPermission ? 'pixel-agents-pulse' : undefined}
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    background: dotColor,
-                    flexShrink: 0,
-                  }}
-                />
-              )}
-              <span
+            {/* Name tag — hide while text bubble is shown to avoid overlap */}
+            {!hasTextBubble && (
+              <div
                 style={{
-                  fontSize: isSub ? '11px' : '12px',
-                  lineHeight: 1.3,
-                  fontStyle: isSub ? 'italic' : undefined,
-                  color: 'var(--vscode-foreground, var(--color-text))',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  display: 'block',
-                  maxWidth: 180,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  background: 'var(--color-bg)',
+                  border: 'none',
+                  borderRadius: 0,
+                  padding: isSelected ? '3px 6px 3px 8px' : '3px 8px',
+                  boxShadow: 'var(--shadow-pixel)',
+                  whiteSpace: 'nowrap',
+                  maxWidth: 220,
                 }}
               >
-                {displayName}
-              </span>
-              {isSelected && !isSub && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onCloseAgent(id);
-                  }}
-                  title="Close agent"
+                {dotColor && (
+                  <span
+                    className={isActive && !hasPermission ? 'pixel-agents-pulse' : undefined}
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      background: dotColor,
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                <span
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--color-close-text)',
-                    cursor: 'pointer',
-                    padding: '0 2px',
-                    fontSize: '26px',
-                    lineHeight: 1,
-                    marginLeft: 2,
-                    flexShrink: 0,
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = 'var(--color-close-hover)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.color = 'var(--color-close-text)';
+                    fontSize: isSub
+                      ? `${TOOL_OVERLAY_SUB_NAME_FONT_PX}px`
+                      : `${TOOL_OVERLAY_NAME_FONT_PX}px`,
+                    lineHeight: 1.3,
+                    fontStyle: isSub ? 'italic' : undefined,
+                    color: 'var(--vscode-foreground, var(--color-text))',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: 'block',
+                    maxWidth: 180,
                   }}
                 >
-                  ×
-                </button>
-              )}
-            </div>
+                  {displayName}
+                </span>
+                {isSelected && !isSub && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCloseAgent(id);
+                    }}
+                    title="Close agent"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--color-close-text)',
+                      cursor: 'pointer',
+                      padding: '0 2px',
+                      fontSize: '26px',
+                      lineHeight: 1,
+                      marginLeft: 2,
+                      flexShrink: 0,
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.color = 'var(--color-close-hover)';
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.color = 'var(--color-close-text)';
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

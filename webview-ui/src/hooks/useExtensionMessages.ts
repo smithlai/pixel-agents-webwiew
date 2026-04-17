@@ -223,6 +223,7 @@ export function useExtensionMessages(
         const id = msg.id as number;
         const toolId = msg.toolId as string;
         const status = msg.status as string;
+
         setAgentTools((prev) => {
           const list = prev[id] || [];
           const existingIdx = list.findIndex((t) => t.toolId === toolId);
@@ -302,7 +303,11 @@ export function useExtensionMessages(
           }
           return { ...prev, [id]: status };
         });
-        os.setAgentActive(id, status === 'active');
+        // DUT active state is driven by task-assigned / task-stopped only.
+        const ch = os.characters.get(id);
+        if (ch?.role !== 'dut') {
+          os.setAgentActive(id, status === 'active');
+        }
         if (status === 'waiting') {
           os.showWaitingBubble(id);
           playDoneSound();
@@ -565,6 +570,7 @@ export function useExtensionMessages(
         }
       }
     };
+
     window.addEventListener('message', handler);
     vscode.postMessage({ type: 'webviewReady' });
     return () => window.removeEventListener('message', handler);

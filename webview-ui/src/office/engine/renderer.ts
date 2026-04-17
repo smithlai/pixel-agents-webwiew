@@ -547,35 +547,7 @@ function renderBubbles(
 
     const sittingOff = ch.state === CharacterState.TYPE ? BUBBLE_SITTING_OFFSET_PX : 0;
 
-    if (ch.bubbleType === 'text' && ch.bubbleText) {
-      // Text speech bubble — canvas rendered
-      const fontSize = Math.max(10, zoom * 3);
-      ctx.save();
-      ctx.font = `${fontSize}px "FS Pixel Sans", monospace`;
-      const text = ch.bubbleText;
-      const metrics = ctx.measureText(text);
-      const padX = zoom * 3;
-      const padY = zoom * 2;
-      const boxW = metrics.width + padX * 2;
-      const boxH = fontSize + padY * 2;
-      const bx = Math.round(offsetX + ch.x * zoom - boxW / 2);
-      const by = Math.round(
-        offsetY + (ch.y + sittingOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - boxH - 2 * zoom,
-      );
-      if (alpha < 1.0) ctx.globalAlpha = alpha;
-      // Background
-      ctx.fillStyle = '#1e1e2e';
-      ctx.fillRect(bx, by, boxW, boxH);
-      // Border
-      ctx.strokeStyle = '#cdd6f4';
-      ctx.lineWidth = Math.max(1, zoom * 0.5);
-      ctx.strokeRect(bx, by, boxW, boxH);
-      // Text
-      ctx.fillStyle = '#cdd6f4';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, bx + padX, by + boxH / 2);
-      ctx.restore();
-    } else {
+    if (ch.bubbleType !== 'text') {
       // Sprite-based bubble (permission / waiting)
       const sprite =
         ch.bubbleType === 'permission' ? BUBBLE_PERMISSION_SPRITE : BUBBLE_WAITING_SPRITE;
