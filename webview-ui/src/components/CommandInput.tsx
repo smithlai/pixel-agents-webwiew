@@ -105,16 +105,16 @@ export function CommandInput({ onSubmit, deviceInfo, officeState }: CommandInput
           value={selectedSerial}
           onChange={(e) => setSelectedSerial(e.target.value)}
           style={selectStyle}
-          title="選擇目標裝置"
+          title="Select target device"
         >
-          <option value="">自動分配</option>
+          <option value="">Auto assign</option>
           {devices.map((d) => (
             <option
               key={d.serial}
               value={d.serial}
               disabled={officeState.characters.get(d.agentId)?.isActive === true}
             >
-              {d.model}{officeState.characters.get(d.agentId)?.isActive === true ? ' (忙碌)' : ''}
+              {d.model}{officeState.characters.get(d.agentId)?.isActive === true ? ' (Busy)' : ''}
             </option>
           ))}
         </select>
@@ -125,11 +125,11 @@ export function CommandInput({ onSubmit, deviceInfo, officeState }: CommandInput
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="輸入指令..."
+        placeholder="Input command..."
         style={inputStyle}
       />
       <button onClick={handleSubmit} style={btnStyle}>
-        送出
+        Send
       </button>
     </div>
   );

@@ -757,7 +757,7 @@ export class OfficeState {
         if (secretary) {
           const dutName = ch.folderName ?? `DUT-${ch.id}`;
           this.showTextBubble(
-            secretary.id, `派遣 ${dutName} 執行任務`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
+            secretary.id, `Dispatch ${dutName} to perform the task`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
           );
         }
       }
@@ -770,12 +770,12 @@ export class OfficeState {
       if (ch.role === AgentRole.DUT && this.workedDutIds.has(ch.id)) {
         const dutName = ch.folderName ?? `DUT-${ch.id}`;
         this.showTextBubble(
-          ch.id, `${dutName}：任務完成`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
+          ch.id, `${dutName}：Task completed`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
         );
         const secretary = this.findNpcByType('secretary');
         if (secretary) {
           this.showTextBubble(
-            secretary.id, `${dutName} 已完成任務`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
+            secretary.id, `${dutName} Task completed`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
           );
         }
       }
@@ -920,19 +920,19 @@ export class OfficeState {
   private static readonly AMBIENT_CHAT_DURATION_SEC = 4;
 
   private static readonly BOSS_AMBIENT_LINES = [
-    '先把今天的節點風險掃過一輪。',
-    '各位，穩定優先，速度第二。',
-    '記錄留完整，回溯才會輕鬆。',
+    'Scan today’s node risks first.',
+    'Stability first, speed second.',
+    'Keep records complete for easy traceability.',
   ] as const;
   private static readonly SECRETARY_AMBIENT_LINES = [
-    '本日待辦已整理，隨時可派工。',
-    '會議與測試時段都在排程中。',
-    '若要調整優先順序，請直接告知。',
+    "Today's tasks are sorted and can be assigned at any time.",
+    'Meetings and test sessions are scheduled.',
+    'If you need to adjust priorities, please inform me directly.',
   ] as const;
   private static readonly PM_AMBIENT_LINES = [
-    '需求切分正在更新最新版本。',
-    '目前風險可控，持續追蹤中。',
-    '我先整理下一輪驗證清單。',
+    'Requirement split is being updated to the latest version.',
+    'Current risks are under control, continue monitoring.',
+    'I will organize the next round of verification checklist.',
   ] as const;
 
   /** Tick NPC-specific behaviors (secretary, PM, bunny) */
@@ -1012,7 +1012,7 @@ export class OfficeState {
 
     const dutName = target.folderName ?? `DUT-${target.id}`;
     this.playAnimation(ch, [
-      { ...serveStep, bubbleText: `請享用 ☕ ${dutName}` },
+      { ...serveStep, bubbleText: `Please enjoy ☕ ${dutName}` },
     ]);
     ch.npcTimer = OfficeState.BUNNY_SERVICE_COOLDOWN_SEC;
   }

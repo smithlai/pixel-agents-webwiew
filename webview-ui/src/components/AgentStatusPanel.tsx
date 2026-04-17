@@ -76,10 +76,10 @@ function getStatusInfo(
     (isSub && bubbleType === 'permission') || tools?.some((t) => t.permissionWait && !t.done);
   const hasActiveTools = tools?.some((t) => !t.done);
 
-  if (hasPermission) return { color: 'var(--color-status-permission)', label: '需要批准' };
-  if (isActive && hasActiveTools) return { color: 'var(--color-status-active)', label: '工作中' };
-  if (isActive) return { color: 'var(--color-status-active)', label: '工作中' };
-  return { color: 'rgba(255,255,255,0.3)', label: '待命' };
+  if (hasPermission) return { color: 'var(--color-status-permission)', label: 'Needs approval' };
+  if (isActive && hasActiveTools) return { color: 'var(--color-status-active)', label: 'Working' };
+  if (isActive) return { color: 'var(--color-status-active)', label: 'Working' };
+  return { color: 'rgba(255,255,255,0.3)', label: 'Standby' };
 }
 
 // ── History hook ─────────────────────────────────────────────────────────────
@@ -263,7 +263,7 @@ function AgentCard({
                 lineHeight: 1.4,
               }}
             >
-              ■ 停止
+              ■ STOP
             </button>
           )}
         </div>
@@ -318,7 +318,7 @@ function AgentCard({
                 userSelect: 'none',
               }}
             >
-              {expanded ? '收合' : `更多 +${hiddenCount}`}
+              {expanded ? 'Collapse' : `More +${hiddenCount}`}
             </div>
           )}
         </div>

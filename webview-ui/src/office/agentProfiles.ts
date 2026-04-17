@@ -59,11 +59,11 @@ export type RoomId = (typeof RoomId)[keyof typeof RoomId];
 // ── Room display names ───────────────────────────────────────────────────────
 
 export const ROOM_NAMES: Record<RoomId, string> = {
-  [RoomId.ROBOT_WORKSHOP]: '機械手臂工房',
-  [RoomId.COMPUTER_ROOM]: '電腦室',
-  [RoomId.BOSS_OFFICE]: '主管辦公室',
-  [RoomId.LOBBY]: '休息大廳',
-  [RoomId.WAR_ROOM]: '戰情室',
+  [RoomId.ROBOT_WORKSHOP]: 'Robot Workshop',
+  [RoomId.COMPUTER_ROOM]: 'Computer Room',
+  [RoomId.BOSS_OFFICE]: 'Boss Office',
+  [RoomId.LOBBY]: 'Lobby',
+  [RoomId.WAR_ROOM]: 'War Room',
 };
 
 // ── Room bounding boxes (col/row ranges, inclusive) ──────────────────────────
@@ -102,7 +102,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     palette: 0,
   },
   npc_secretary: {
-    name: '秘書',
+    name: 'Secretary',
     role: AgentRole.NPC,
     npcType: 'secretary',
     room: RoomId.BOSS_OFFICE,
@@ -121,7 +121,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     sprite: 12,
   },
   npc_bunny1: {
-    name: '兔女郎（內場）',
+    name: 'Bunny Girl (BOH) ',
     role: AgentRole.NPC,
     npcType: 'bunny',
     room: RoomId.LOBBY,
@@ -131,7 +131,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     spawnTile: { col: 1, row: 15 },
   },
   npc_bunny2: {
-    name: '兔女郎（外場）',
+    name: 'Bunny Girl (FOH) ',
     role: AgentRole.NPC,
     npcType: 'bunny',
     room: RoomId.LOBBY,
@@ -141,7 +141,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     spawnTile: { col: 3, row: 17 },
   },
   npc_bunny3: {
-    name: '兔女郎（外場）',
+    name: 'Bunny Girl (FOH) ',
     role: AgentRole.NPC,
     npcType: 'bunny',
     room: RoomId.LOBBY,
@@ -151,7 +151,7 @@ export const DEFAULT_PROFILES: Record<string, AgentProfile> = {
     spawnTile: { col: 8, row: 16 },
   },
   npc_bunny4: {
-    name: '兔女郎（外場）',
+    name: 'Bunny Girl (FOH) ',
     role: AgentRole.NPC,
     npcType: 'bunny',
     room: RoomId.LOBBY,
