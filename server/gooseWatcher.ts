@@ -25,6 +25,14 @@ export interface GooseWatcherOptions {
   onFileRemoved?: (file: string) => void;
   /** Polling interval in ms (fallback for unreliable fs.watch) */
   pollIntervalMs?: number;
+  /**
+   * MobileGoose test-reports directory. When the runtime JSONL vanishes,
+   * the watcher will look up the archived copy at
+   * `${archiveDir}/<testrun_safe>/goose-events-<testrun_safe>.jsonl`
+   * and read any remaining bytes (including the terminal `session_end`)
+   * before firing onFileRemoved. Skipped when unset.
+   */
+  archiveDir?: string;
 }
 
 interface WatchedFile {
@@ -44,6 +52,7 @@ export class GooseWatcher {
   private readonly onFileFound: GooseWatcherOptions['onFileFound'];
   private readonly onFileRemoved: GooseWatcherOptions['onFileRemoved'];
   private readonly pollIntervalMs: number;
+  private readonly archiveDir?: string;
 
   private watchedFiles = new Map<string, WatchedFile>();
   private fsWatcher: fs.FSWatcher | null = null;
@@ -56,6 +65,7 @@ export class GooseWatcher {
     this.onFileFound = options.onFileFound;
     this.onFileRemoved = options.onFileRemoved;
     this.pollIntervalMs = options.pollIntervalMs ?? POLL_INTERVAL_DEFAULT;
+    this.archiveDir = options.archiveDir;
   }
 
   start(): void {
@@ -166,6 +176,77 @@ export class GooseWatcher {
     }
   }
 
+  /**
+   * When the runtime JSONL disappears, try to drain remaining events from the
+   * archived copy MobileGoose writes to `test-reports/<testrun_safe>/` just
+   * before `os.remove()`. This closes the TOCTOU gap between the final
+   * `session_end` write and the cleanup without requiring the writer to sleep.
+   *
+   * Returns true if the archive was found and drained (callers can rely on
+   * session_end having been emitted via onEvent).
+   */
+  private drainFromArchive(filePath: string, state: WatchedFile): boolean {
+    if (!this.archiveDir) return false;
+    const base = path.basename(filePath);
+    // goose-events-<testrun_safe>.jsonl
+    const m = base.match(/^goose-events-(.+)\.jsonl$/);
+    if (!m) return false;
+    const testrunSafe = m[1];
+    const archivePath = path.join(this.archiveDir, testrunSafe, base);
+
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(archivePath);
+    } catch {
+      return false;
+    }
+    if (stat.size <= state.offset) return true; // archive already drained
+
+    let fd: number;
+    try {
+      fd = fs.openSync(archivePath, 'r');
+    } catch {
+      return false;
+    }
+    try {
+      const buf = Buffer.alloc(stat.size - state.offset);
+      fs.readSync(fd, buf, 0, buf.length, state.offset);
+      const text = state.lineBuffer + state.decoder.write(buf) + state.decoder.end();
+      const lines = text.split('\n');
+      // In archive-drain mode we consume everything; no partial line is carried.
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        try {
+          const event = JSON.parse(trimmed) as GooseEvent;
+          if (event.type && event.ts) {
+            this.onEvent(event, filePath);
+          }
+        } catch {
+          console.warn(`[GooseWatcher] Archive malformed line: ${trimmed.slice(0, 120)}`);
+        }
+      }
+      console.log(`[GooseWatcher] Drained ${stat.size - state.offset}B from archive: ${testrunSafe}`);
+      return true;
+    } finally {
+      fs.closeSync(fd);
+    }
+  }
+
+  private handleVanished(filePath: string, reason: string): void {
+    const state = this.watchedFiles.get(filePath);
+    if (state) {
+      const drained = this.drainFromArchive(filePath, state);
+      if (drained) {
+        console.log(`[GooseWatcher] File vanished (${reason}) — session_end recovered from archive: ${path.basename(filePath)}`);
+      } else {
+        console.warn(`[GooseWatcher] File vanished (${reason}), no archive available: ${path.basename(filePath)}`);
+      }
+    }
+    this.watchedFiles.delete(filePath);
+    this.onFileRemoved?.(filePath);
+  }
+
   private readNewLines(filePath: string): void {
     const state = this.watchedFiles.get(filePath);
     if (!state) return;
@@ -174,10 +255,7 @@ export class GooseWatcher {
     try {
       stat = fs.statSync(filePath);
     } catch {
-      // File vanished — treat as session ended
-      console.warn(`[GooseWatcher] File vanished (stat), removing watch: ${path.basename(filePath)}`);
-      this.watchedFiles.delete(filePath);
-      this.onFileRemoved?.(filePath);
+      this.handleVanished(filePath, 'stat');
       return;
     }
 
@@ -199,10 +277,8 @@ export class GooseWatcher {
     try {
       fd = fs.openSync(filePath, 'r');
     } catch {
-      // File vanished (process cleanup, SessionCleaner, etc.) — stop watching
-      console.warn(`[GooseWatcher] File vanished (open), removing watch: ${path.basename(filePath)}`);
-      this.watchedFiles.delete(filePath);
-      this.onFileRemoved?.(filePath);
+      // File vanished (process cleanup, SessionCleaner, etc.)
+      this.handleVanished(filePath, 'open');
       return;
     }
     try {

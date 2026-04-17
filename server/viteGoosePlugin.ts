@@ -221,8 +221,17 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
       // Map JSONL filename → serial for routing events to the right translator
       const fileSerialMap = new Map<string, string>();
 
+      // Archive fallback: MobileGoose wrapper copies session logs to
+      // `${mobileGooseDir}/test-reports/<testrun_safe>/` before deleting the
+      // runtime file. Letting the watcher drain from there closes the TOCTOU
+      // gap on session_end without the writer having to sleep.
+      const archiveDir = mobileGooseDir
+        ? path.resolve(mobileGooseDir, 'test-reports')
+        : undefined;
+
       watcher = new GooseWatcher({
         watchDir,
+        archiveDir,
         onEvent: (event, file) => {
           const serial = fileSerialMap.get(file);
           if (!serial) {
