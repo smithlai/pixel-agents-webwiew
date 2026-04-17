@@ -33,7 +33,8 @@ import type {
   TileType as TileTypeVal,
 } from '../types.js';
 import { CharacterState, Direction, MATRIX_EFFECT_DURATION, TILE_SIZE } from '../types.js';
-import { AgentRole, DEFAULT_PROFILES, matchProfile } from '../agentProfiles.js';
+import { AgentRole, DEFAULT_PROFILES, matchProfile, ROOM_BOUNDS, RoomId } from '../agentProfiles.js';
+import type { RoomBounds } from '../agentProfiles.js';
 import { createCharacter, updateCharacter } from './characters.js';
 import { matrixEffectSeeds } from './matrixEffect.js';
 
@@ -977,12 +978,17 @@ export class OfficeState {
     // While executing an animation, wait it out.
     if (ch.behaviorQueue.length > 0) return;
 
+    // Counter bunny (lobby-bar) just wanders behind the bar — no delivery.
+    if (ch.wanderArea === 'lobby-bar') return;
+
     // First-time init: don't serve immediately on spawn.
     if (ch.npcTimer === undefined) ch.npcTimer = OfficeState.BUNNY_SERVICE_COOLDOWN_SEC;
     ch.npcTimer -= dt;
     if (ch.npcTimer > 0) return;
 
-    const target = this.pickCoffeeTarget();
+    // Only serve DUTs whose seats are inside the LOBBY — don't wander into test labs.
+    const lobbyBounds = ROOM_BOUNDS[RoomId.LOBBY];
+    const target = this.pickCoffeeTarget(lobbyBounds);
     if (!target) {
       // Nobody to serve — stay in wander mode, retry after half a cooldown.
       ch.npcTimer = OfficeState.BUNNY_SERVICE_COOLDOWN_SEC / 2;
@@ -1011,8 +1017,9 @@ export class OfficeState {
     ch.npcTimer = OfficeState.BUNNY_SERVICE_COOLDOWN_SEC;
   }
 
-  /** Pick an active DUT that hasn't had coffee recently. */
-  private pickCoffeeTarget(): Character | null {
+  /** Pick an active DUT that hasn't had coffee recently.
+   *  If `bounds` is given, only consider DUTs whose seat is within that area. */
+  private pickCoffeeTarget(bounds?: RoomBounds): Character | null {
     const now = performance.now();
     const cooldownMs = OfficeState.BUNNY_COFFEE_COOLDOWN_SEC * 1000;
     const candidates: Character[] = [];
@@ -1021,6 +1028,14 @@ export class OfficeState {
       if (!ch.isActive) continue;
       if (ch.matrixEffect) continue;
       if (ch.lastCoffeeTs !== undefined && now - ch.lastCoffeeTs < cooldownMs) continue;
+      // Area filter: DUT's seat must be inside the specified bounds
+      if (bounds && ch.seatId) {
+        const seat = this.seats.get(ch.seatId);
+        if (seat && (
+          seat.seatCol < bounds.colMin || seat.seatCol > bounds.colMax ||
+          seat.seatRow < bounds.rowMin || seat.seatRow > bounds.rowMax
+        )) continue;
+      }
       candidates.push(ch);
     }
     if (candidates.length === 0) return null;
