@@ -272,7 +272,7 @@ function App() {
         const os = getOfficeState();
         const secretary = os.findNpcByType('secretary');
         if (secretary) {
-          os.showTextBubble(secretary.id, err.message ?? '派工失敗', 8);
+          os.showTextBubble(secretary.id, err.message ?? 'Task dispatch failed', 8);
         }
       }
     }).catch(() => {

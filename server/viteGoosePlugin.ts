@@ -479,7 +479,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
               if (target && target.state !== 'idle') {
                 res.statusCode = 409;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'device_busy', message: `裝置 ${serial} 正在忙碌中` }));
+                res.end(JSON.stringify({ error: 'device_busy', message: `Device ${serial} is busy` }));
                 return;
               }
             }
@@ -489,7 +489,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             if (!assignment) {
               res.statusCode = 409;
               res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ error: 'no_available_tester', message: '所有 Tester 都在忙碌中' }));
+              res.end(JSON.stringify({ error: 'no_available_tester', message: 'All Testers are busy' }));
               return;
             }
 
