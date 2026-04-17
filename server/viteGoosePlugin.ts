@@ -289,6 +289,35 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             console.warn(`[GoosePlugin] Ignoring JSONL with unexpected filename: ${path.basename(file)}`);
           }
         },
+        onFileRemoved: (file) => {
+          // JSONL 被外部程序刪除（MobileGoose goose-log-wrapper.py 的 close() 在
+          // emit session_end → archive → 立即 os.remove）。
+          // 大多情況 session_end 已被 onEvent 處理，這裡作為安全網：
+          // 若因 TOCTOU race 讀取失敗（stat 成功但 open 時已刪），session_end
+          // 可能沒被收到。無條件執行 completeTask + task-stopped 是安全的（冪等）。
+          const serial = fileSerialMap.get(file);
+          if (!serial) {
+            console.warn(`[GoosePlugin] File removed but unmapped: ${path.basename(file)}`);
+            return;
+          }
+          console.log(`[GoosePlugin] File vanished, treating as session_end: ${path.basename(file)} [${serial}]`);
+
+          const agent = deviceManager.getAgent(serial);
+          const agentId = agent?.agentId;
+          const completed = deviceManager.completeTask(serial, 'completed');
+          if (completed) {
+            console.log(`[GoosePlugin] Device ${serial} released via file-vanish (agent ${completed.agentId})`);
+          }
+          if (agentId !== undefined) {
+            broadcastRaw({
+              type: 'task-stopped',
+              serial,
+              agentId,
+              reason: 'completed',
+            });
+          }
+          fileSerialMap.delete(file);
+        },
       });
 
       watcher.start();

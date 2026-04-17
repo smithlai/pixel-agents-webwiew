@@ -21,6 +21,8 @@ export interface GooseWatcherOptions {
   onEvent: (event: GooseEvent, file: string) => void;
   /** Called when a new JSONL file is detected */
   onFileFound?: (file: string) => void;
+  /** Called when a watched JSONL file vanishes (deleted by external process) */
+  onFileRemoved?: (file: string) => void;
   /** Polling interval in ms (fallback for unreliable fs.watch) */
   pollIntervalMs?: number;
 }
@@ -40,6 +42,7 @@ export class GooseWatcher {
   private readonly watchDir: string;
   private readonly onEvent: GooseWatcherOptions['onEvent'];
   private readonly onFileFound: GooseWatcherOptions['onFileFound'];
+  private readonly onFileRemoved: GooseWatcherOptions['onFileRemoved'];
   private readonly pollIntervalMs: number;
 
   private watchedFiles = new Map<string, WatchedFile>();
@@ -51,6 +54,7 @@ export class GooseWatcher {
     this.watchDir = options.watchDir;
     this.onEvent = options.onEvent;
     this.onFileFound = options.onFileFound;
+    this.onFileRemoved = options.onFileRemoved;
     this.pollIntervalMs = options.pollIntervalMs ?? POLL_INTERVAL_DEFAULT;
   }
 
@@ -170,7 +174,11 @@ export class GooseWatcher {
     try {
       stat = fs.statSync(filePath);
     } catch {
-      return; // File might have been deleted
+      // File vanished — treat as session ended
+      console.warn(`[GooseWatcher] File vanished (stat), removing watch: ${path.basename(filePath)}`);
+      this.watchedFiles.delete(filePath);
+      this.onFileRemoved?.(filePath);
+      return;
     }
 
     // File was truncated/recreated — reset offset
@@ -186,8 +194,17 @@ export class GooseWatcher {
 
     console.log(`[GooseWatcher] Reading ${stat.size - state.offset}B from ${path.basename(filePath)}`);
 
-    // Read new bytes
-    const fd = fs.openSync(filePath, 'r');
+    // Read new bytes — file may be deleted between stat and open (TOCTOU race)
+    let fd: number;
+    try {
+      fd = fs.openSync(filePath, 'r');
+    } catch {
+      // File vanished (process cleanup, SessionCleaner, etc.) — stop watching
+      console.warn(`[GooseWatcher] File vanished (open), removing watch: ${path.basename(filePath)}`);
+      this.watchedFiles.delete(filePath);
+      this.onFileRemoved?.(filePath);
+      return;
+    }
     try {
       const buf = Buffer.alloc(stat.size - state.offset);
       fs.readSync(fd, buf, 0, buf.length, state.offset);
