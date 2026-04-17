@@ -35,15 +35,15 @@ function isSparkEmitter(
   characters: Character[],
 ): boolean {
   if (!item.type?.startsWith('ROBOT_ARM')) return false;
-  // Only emit when an active agent is near the base.
-  // ROBOT_ARM footprint = 4×2. Check the middle cols (col+1, col+2) at and
-  // just below the base row (row+1, row+2) — that's where chairs will be.
+  // ROBOT_ARM PNG 3×2 tiles (48×32px); footprint = left 2 cols, right col is
+  // the overhanging arm. Trigger when an active agent sits anywhere in the
+  // 3×3 neighbourhood around the base (including the chair row above).
   const itemCol = Math.floor(item.x / TILE_SIZE);
   const itemRow = Math.floor(item.y / TILE_SIZE);
   for (const ch of characters) {
     if (!ch.isActive) continue;
-    if (ch.tileCol >= itemCol + 1 && ch.tileCol <= itemCol + 2 &&
-        ch.tileRow >= itemRow + 1 && ch.tileRow <= itemRow + 2) {
+    if (ch.tileCol >= itemCol && ch.tileCol <= itemCol + 2 &&
+        ch.tileRow >= itemRow - 1 && ch.tileRow <= itemRow + 2) {
       return true;
     }
   }
@@ -51,9 +51,9 @@ function isSparkEmitter(
 }
 
 function getSparkOrigin(item: { x: number; y: number }): { x: number; y: number } {
-  // ROBOT_ARM = 4×2 tiles (64×32px). Arm tip at upper-right corner.
+  // ROBOT_ARM = 3×2 tiles (48×32px). Arm tip at upper-right corner.
   return {
-    x: item.x + TILE_SIZE * 3.5,
+    x: item.x + TILE_SIZE * 2.5,
     y: item.y + TILE_SIZE * 1.0,
   };
 }

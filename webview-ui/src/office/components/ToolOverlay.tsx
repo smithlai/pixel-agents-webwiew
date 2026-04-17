@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   CHARACTER_SITTING_OFFSET_PX,
@@ -27,26 +27,6 @@ interface ToolOverlayProps {
   alwaysShowOverlay: boolean;
 }
 
-/** Derive a short human-readable activity string from tools/status */
-function getActivityText(
-  agentId: number,
-  agentTools: Record<number, ToolActivity[]>,
-  isActive: boolean,
-): string {
-  if (!isActive) return 'Idle';
-  const tools = agentTools[agentId];
-  if (tools && tools.length > 0) {
-    const activeTool = [...tools].reverse().find((t) => !t.done);
-    if (activeTool) {
-      if (activeTool.permissionWait) return 'Needs approval';
-      return activeTool.status;
-    }
-    const lastTool = tools[tools.length - 1];
-    if (lastTool) return lastTool.status;
-  }
-  return 'Idle';
-}
-
 export function ToolOverlay({
   officeState,
   agents,
@@ -68,10 +48,6 @@ export function ToolOverlay({
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, []);
-
-  // Track when activity text last changed per agent — hide after 5s of no update
-  const activityTimestampRef = useRef<Map<number, { text: string; shownAt: number }>>(new Map());
-  const ACTIVITY_AUTO_HIDE_MS = 5000;
 
   const el = containerRef.current;
   if (!el) return null;
@@ -117,31 +93,8 @@ export function ToolOverlay({
         const screenY =
           (deviceOffsetY + (ch.y + sittingOffset - TOOL_OVERLAY_VERTICAL_OFFSET) * zoom) / dpr;
 
-        // Get activity text
         const subHasPermission = isSub && ch.bubbleType === 'permission';
-        const nowMs = Date.now();
-        let activityText: string;
-        if (isSub) {
-          if (subHasPermission) {
-            activityText = 'Needs approval';
-          } else {
-            const sub = subagentCharacters.find((s) => s.id === id);
-            activityText = sub ? sub.label : 'Subtask';
-          }
-        } else {
-          activityText = getActivityText(id, agentTools, ch.isActive);
-        }
 
-        // Track activity text changes — reset timer when text changes (ignore Idle)
-        const prevEntry = activityTimestampRef.current.get(id);
-        const isMeaningfulText = activityText !== 'Idle';
-        if (isMeaningfulText && (!prevEntry || prevEntry.text !== activityText)) {
-          activityTimestampRef.current.set(id, { text: activityText, shownAt: nowMs });
-        }
-        const shownAt = activityTimestampRef.current.get(id)?.shownAt ?? 0;
-        const showActivityText = isMeaningfulText && nowMs - shownAt < ACTIVITY_AUTO_HIDE_MS;
-
-        // Permanent display name — separate from the temporary activity text
         const displayName = isSub
           ? (subagentCharacters.find((s) => s.id === id)?.name ?? 'Subtask')
           : (profile?.name ?? ch.folderName ?? `Agent ${id}`);
@@ -186,75 +139,33 @@ export function ToolOverlay({
                   border: '1px solid var(--color-border)',
                   padding: `${TOOL_OVERLAY_ACTIVITY_PADDING_Y_PX}px ${TOOL_OVERLAY_ACTIVITY_PADDING_X_PX}px`,
                   maxWidth: 360,
-                  minWidth: 160,
                   fontSize: `${TOOL_OVERLAY_ACTIVITY_FONT_PX}px`,
                   color: 'var(--color-text)',
                   boxShadow: 'var(--shadow-pixel)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
+                  lineHeight: 1.35,
+                  whiteSpace: 'normal',
+                  overflowWrap: 'anywhere',
+                  wordBreak: 'break-word',
                 }}
               >
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.22)' }} />
-                <div
-                  style={{
-                    fontWeight: 700,
-                    lineHeight: 1.2,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {displayName}
-                </div>
-                <div
-                  style={{
-                    lineHeight: 1.35,
-                    whiteSpace: 'normal',
-                    overflowWrap: 'anywhere',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {textBubbleMessage}
-                </div>
-                <div style={{ borderBottom: '1px solid rgba(255,255,255,0.22)' }} />
+                {textBubbleMessage}
               </div>
             )}
-            {/* Activity bubble — auto-hides 5s after last change */}
-            {showActivityText && !hasTextBubble && (
-              <div
-                style={{
-                  background: 'rgba(10, 10, 20, 0.72)',
-                  border: '1px solid var(--color-border)',
-                  padding: `${TOOL_OVERLAY_ACTIVITY_PADDING_Y_PX}px ${TOOL_OVERLAY_ACTIVITY_PADDING_X_PX}px`,
-                  maxWidth: 240,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  fontSize: `${TOOL_OVERLAY_ACTIVITY_FONT_PX}px`,
-                  color: 'var(--color-text)',
-                  boxShadow: 'var(--shadow-pixel)',
-                }}
-              >
-                {activityText}
-              </div>
-            )}
-            {/* Name tag — hide while text bubble is shown to avoid overlap */}
-            {!hasTextBubble && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  background: 'var(--color-bg)',
-                  border: 'none',
-                  borderRadius: 0,
-                  padding: isSelected ? '3px 6px 3px 8px' : '3px 8px',
-                  boxShadow: 'var(--shadow-pixel)',
-                  whiteSpace: 'nowrap',
-                  maxWidth: 220,
-                }}
-              >
+            {/* Name tag — always visible so Name position stays stable */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                background: 'var(--color-bg)',
+                border: 'none',
+                borderRadius: 0,
+                padding: isSelected ? '3px 6px 3px 8px' : '3px 8px',
+                boxShadow: 'var(--shadow-pixel)',
+                whiteSpace: 'nowrap',
+                maxWidth: 220,
+              }}
+            >
                 {dotColor && (
                   <span
                     className={isActive && !hasPermission ? 'pixel-agents-pulse' : undefined}
@@ -312,7 +223,6 @@ export function ToolOverlay({
                   </button>
                 )}
               </div>
-            )}
           </div>
         );
       })}

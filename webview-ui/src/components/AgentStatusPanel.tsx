@@ -92,6 +92,7 @@ function useActivityHistory(
 ): Map<number, HistoryEntry[]> {
   const historyRef = useRef(new Map<number, HistoryEntry[]>());
   const seenToolsRef = useRef(new Set<string>());
+  const seenSpeechRef = useRef(new Set<string>());
 
   const allIds = [...agents, ...subagentCharacters.map((s) => s.id)];
 
@@ -116,6 +117,21 @@ function useActivityHistory(
             ? (subagentCharacters.find((s) => s.id === id)?.label ?? 'Subtask')
             : tool.status;
           history.push({ text, timestamp: new Date() });
+          if (history.length > MAX_HISTORY) {
+            history.splice(0, history.length - MAX_HISTORY);
+          }
+        }
+      }
+    }
+
+    // Event-only speech log (dispatch / completion / alerts) — used by NPCs
+    // without JSONL (Boss / Secretary). Ambient chat is intentionally excluded.
+    if (ch.speechLog) {
+      for (const entry of ch.speechLog) {
+        const key = `${id}:${entry.timestamp}:${entry.text}`;
+        if (!seenSpeechRef.current.has(key)) {
+          seenSpeechRef.current.add(key);
+          history.push({ text: entry.text, timestamp: new Date(entry.timestamp) });
           if (history.length > MAX_HISTORY) {
             history.splice(0, history.length - MAX_HISTORY);
           }

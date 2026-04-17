@@ -193,6 +193,11 @@ export interface Character {
   bubbleTimer: number;
   /** Text content for 'text' bubble type */
   bubbleText?: string;
+  /**
+   * Priority of the active text bubble — higher wins when a new bubble arrives.
+   * 0 = ambient chat, 1 = JSONL activity, 2 = notify (dispatch / completion / alerts).
+   */
+  bubblePriority?: number;
   /** Timer to stay seated while inactive after seat reassignment (counts down to 0) */
   seatTimer: number;
   /** Whether this character represents a sub-agent (spawned by Task tool) */
@@ -231,6 +236,12 @@ export interface Character {
    * 'report' = stand and wait, 'work' = sit and type, 'rest' = sit then idle.
    */
   behaviorQueue: Array<BehaviorStep>;
+  /**
+   * Runtime speech log — event-only bubbles (dispatch / completion / alerts).
+   * Ambient chatter is excluded. Used by the status panel to surface history
+   * for NPCs without JSONL (Boss / Secretary).
+   */
+  speechLog?: Array<{ text: string; timestamp: number }>;
 }
 
 export interface BehaviorStep {

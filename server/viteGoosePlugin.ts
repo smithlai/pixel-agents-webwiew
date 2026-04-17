@@ -465,7 +465,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             if (allAgents.length === 0) {
               res.statusCode = 404;
               res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ error: 'no_devices', message: '沒有偵測到 ADB 裝置' }));
+              res.end(JSON.stringify({ error: 'no_devices', message: 'No ADB device detected' }));
               return;
             }
 

@@ -242,6 +242,10 @@ export function useExtensionMessages(
         os.setAgentTool(id, toolName);
         os.setAgentActive(id, true);
         os.clearPermissionBubble(id);
+        // Surface tool status as a JSONL bubble (mid priority). Unified visual
+        // with notify/ambient bubbles, but not recorded in speechLog (already
+        // present in agentTools).
+        os.showJsonlBubble(id, status);
         // Create sub-agent character for Task tool subtasks
         if (status.startsWith('Subtask:')) {
           const label = status.slice('Subtask:'.length).trim();

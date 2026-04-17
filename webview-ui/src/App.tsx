@@ -272,7 +272,7 @@ function App() {
         const os = getOfficeState();
         const secretary = os.findNpcByType('secretary');
         if (secretary) {
-          os.showTextBubble(secretary.id, err.message ?? 'Task dispatch failed', 8);
+          os.showNotifyBubble(secretary.id, err.message ?? 'Task dispatch failed', 8);
         }
       }
     }).catch(() => {

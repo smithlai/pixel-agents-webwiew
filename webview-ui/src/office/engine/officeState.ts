@@ -756,7 +756,7 @@ export class OfficeState {
         const secretary = this.findNpcByType('secretary');
         if (secretary) {
           const dutName = ch.folderName ?? `DUT-${ch.id}`;
-          this.showTextBubble(
+          this.showNotifyBubble(
             secretary.id, `Dispatch ${dutName} to perform the task`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
           );
         }
@@ -769,12 +769,12 @@ export class OfficeState {
       // No walking handoff — zero timing issues.
       if (ch.role === AgentRole.DUT && this.workedDutIds.has(ch.id)) {
         const dutName = ch.folderName ?? `DUT-${ch.id}`;
-        this.showTextBubble(
-          ch.id, `${dutName}：Task completed`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
+        this.showNotifyBubble(
+          ch.id, 'Task completed', OfficeState.TEXT_BUBBLE_DURATION_SEC,
         );
         const secretary = this.findNpcByType('secretary');
         if (secretary) {
-          this.showTextBubble(
+          this.showNotifyBubble(
             secretary.id, `${dutName} Task completed`, OfficeState.TEXT_BUBBLE_DURATION_SEC,
           );
         }
@@ -887,14 +887,50 @@ export class OfficeState {
     }
   }
 
-  showTextBubble(id: number, text: string, duration = 5): void {
+  /**
+   * Internal bubble setter — public callers should use showAmbientBubble /
+   * showJsonlBubble / showNotifyBubble for the right priority + history rule.
+   *
+   * Priority rule: a new bubble only replaces an active one when its priority
+   * is greater-than-or-equal. Once the active bubble fades, any priority wins.
+   */
+  private showTextBubble(id: number, text: string, duration: number, priority: number): boolean {
     const ch = this.characters.get(id);
-    if (ch) {
-      ch.bubbleType = 'text';
-      ch.bubbleText = text;
-      ch.bubbleTimer = duration;
+    if (!ch) return false;
+    const stillActive = ch.bubbleType === 'text' && ch.bubbleTimer > 0;
+    if (stillActive && (ch.bubblePriority ?? 0) > priority) return false;
+    ch.bubbleType = 'text';
+    ch.bubbleText = text;
+    ch.bubbleTimer = duration;
+    ch.bubblePriority = priority;
+    return true;
+  }
+
+  /** Ambient chatter — lowest priority, no history. */
+  showAmbientBubble(id: number, text: string, duration = 5): void {
+    this.showTextBubble(id, text, duration, 0);
+  }
+
+  /** JSONL tool activity — mid priority, no history (already in agentTools). */
+  showJsonlBubble(id: number, text: string, duration = 5): void {
+    this.showTextBubble(id, text, duration, 1);
+  }
+
+  /** Event notify (dispatch / completion / alerts) — top priority, recorded in speechLog. */
+  showNotifyBubble(id: number, text: string, duration = 5): void {
+    const accepted = this.showTextBubble(id, text, duration, 2);
+    if (!accepted) return;
+    const ch = this.characters.get(id);
+    if (!ch) return;
+    if (!ch.speechLog) ch.speechLog = [];
+    ch.speechLog.push({ text, timestamp: Date.now() });
+    if (ch.speechLog.length > OfficeState.SPEECH_LOG_MAX) {
+      ch.speechLog.splice(0, ch.speechLog.length - OfficeState.SPEECH_LOG_MAX);
     }
   }
+
+  /** Max speech log entries per character (notify bubbles only) */
+  private static readonly SPEECH_LOG_MAX = 50;
 
   /** Dismiss bubble on click — permission: instant, waiting: quick fade */
   dismissBubble(id: number): void {
@@ -1130,7 +1166,7 @@ export class OfficeState {
       const lines = this.getAmbientLines(ch);
       if (lines.length > 0) {
         const text = lines[Math.floor(Math.random() * lines.length)];
-        this.showTextBubble(ch.id, text, OfficeState.AMBIENT_CHAT_DURATION_SEC);
+        this.showAmbientBubble(ch.id, text, OfficeState.AMBIENT_CHAT_DURATION_SEC);
       }
 
       const reset =
