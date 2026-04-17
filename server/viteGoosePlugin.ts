@@ -240,13 +240,29 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
           console.log(`[GoosePlugin] Event: ${event.type} → ${messages.length} messages (${clients.size} clients)${serial ? ` [${serial}]` : ''}`);
           broadcast(messages);
 
-          // session_end 快路徑：Goose 自然結束時立即釋放本地 DeviceManager 快取。
+          // session_end 快路徑：Goose 自然結束時立即釋放本地 DeviceManager 快取，
+          // 並通知前端 task-stopped，讓 DUT 角色的 isActive 正確歸零。
+          // （DUT 的 agentStatus:'idle' 被 role !== 'dut' 保護跳過，
+          //   只有 task-stopped 才會觸發 setAgentActive(false)。）
           // 外部 session（別的 server 派的工）不在這裡處理，由 heartbeat
           // watchdog 以檔案系統為真理自行收斂。
           if (serial && event.type === 'session_end') {
+            const agent = deviceManager.getAgent(serial);
+            const agentId = agent?.agentId;
             const completed = deviceManager.completeTask(serial, 'completed');
             if (completed) {
               console.log(`[GoosePlugin] Device ${serial} released (agent ${completed.agentId})`);
+            }
+            // 無論 completeTask 是否成功（可能已被 heartbeat watchdog 或 user-stop 搶先釋放），
+            // 都必須 broadcast task-stopped，否則前端 DUT 的 isActive 永遠不會歸零。
+            // 重複發送是安全的——前端 handler 是冪等的。
+            if (agentId !== undefined) {
+              broadcastRaw({
+                type: 'task-stopped',
+                serial,
+                agentId,
+                reason: 'completed',
+              });
             }
           }
         },
