@@ -479,7 +479,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
               if (target && target.state !== 'idle') {
                 res.statusCode = 409;
                 res.setHeader('Content-Type', 'application/json');
-                res.end(JSON.stringify({ error: 'device_busy', message: `裝置 ${serial} 正在執行任務` }));
+                res.end(JSON.stringify({ error: 'device_busy', message: `裝置 ${serial} 正在忙碌中` }));
                 return;
               }
             }

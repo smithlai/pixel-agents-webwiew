@@ -1090,7 +1090,7 @@ export class OfficeState {
     if (step) this.playAnimation(ch, [step]);
   }
 
-  private findNpcByType(npcType: 'secretary' | 'pm' | 'bunny'): Character | null {
+  findNpcByType(npcType: 'secretary' | 'pm' | 'bunny'): Character | null {
     for (const ch of this.characters.values()) {
       if (ch.npcType === npcType) return ch;
     }

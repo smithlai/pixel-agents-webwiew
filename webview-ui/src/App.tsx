@@ -268,6 +268,12 @@ function App() {
       } else {
         const err = await r.json().catch(() => ({ error: 'unknown' })) as { error?: string; message?: string };
         console.warn(`[Boss] /goose/run failed: ${err.error} — ${err.message ?? ''}`);
+        // 失敗時讓秘書廣播原因，否則 Boss 動畫照樣走完、使用者看不出任務沒派出去
+        const os = getOfficeState();
+        const secretary = os.findNpcByType('secretary');
+        if (secretary) {
+          os.showTextBubble(secretary.id, err.message ?? '派工失敗', 8);
+        }
       }
     }).catch(() => {
       console.log('[Boss] /goose/run not available — visual only');
