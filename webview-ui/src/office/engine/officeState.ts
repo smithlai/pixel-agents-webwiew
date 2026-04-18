@@ -176,27 +176,16 @@ export class OfficeState {
     return `${seat.seatCol},${seat.seatRow}`;
   }
 
-  /** Temporarily unblock a character's own seat, run fn, then re-block */
-  private withOwnSeatUnblocked<T>(ch: Character, fn: () => T): T {
-    const key = this.ownSeatKey(ch);
-    if (key) this.blockedTiles.delete(key);
-    const result = fn();
-    if (key) this.blockedTiles.add(key);
-    return result;
-  }
-
-  /** Temporarily unblock own seat + all behavior queue target seats */
-  private withBehaviorSeatsUnblocked<T>(ch: Character, fn: () => T): T {
+  /** Collect tile keys to temporarily unblock for pathfinding involving a character. */
+  private collectUnblockKeys(ch: Character, includeBehavior: boolean): string[] {
     const keys: string[] = [];
-    // Own seat
     const ownKey = this.ownSeatKey(ch);
     if (ownKey) keys.push(ownKey);
-    // Rest seat
+    if (!includeBehavior) return keys;
     if (ch.restSeatId) {
       const restSeat = this.seats.get(ch.restSeatId);
       if (restSeat) keys.push(`${restSeat.seatCol},${restSeat.seatRow}`);
     }
-    // Behavior queue targets
     for (const b of ch.behaviorQueue) {
       if (b.tile) {
         keys.push(`${b.tile.col},${b.tile.row}`);
@@ -205,7 +194,11 @@ export class OfficeState {
         if (seat) keys.push(`${seat.seatCol},${seat.seatRow}`);
       }
     }
-    // Unblock
+    return keys;
+  }
+
+  /** Temporarily unblock the given tile keys, run fn, then restore the ones we actually removed. */
+  private withSeatsUnblocked<T>(keys: string[], fn: () => T): T {
     const restored: string[] = [];
     for (const k of keys) {
       if (this.blockedTiles.has(k)) {
@@ -214,7 +207,6 @@ export class OfficeState {
       }
     }
     const result = fn();
-    // Re-block
     for (const k of restored) {
       this.blockedTiles.add(k);
     }
@@ -413,7 +405,7 @@ export class OfficeState {
     seat.assigned = true;
     ch.seatId = seatId;
     // Pathfind to new seat (unblock own seat tile for this query)
-    const path = this.withOwnSeatUnblocked(ch, () =>
+    const path = this.withSeatsUnblocked(this.collectUnblockKeys(ch, false), () =>
       findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles),
     );
     if (path.length > 0) {
@@ -440,7 +432,7 @@ export class OfficeState {
     if (!ch || !ch.seatId) return;
     const seat = this.seats.get(ch.seatId);
     if (!seat) return;
-    const path = this.withOwnSeatUnblocked(ch, () =>
+    const path = this.withSeatsUnblocked(this.collectUnblockKeys(ch, false), () =>
       findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, this.tileMap, this.blockedTiles),
     );
     if (path.length > 0) {
@@ -470,7 +462,7 @@ export class OfficeState {
       const key = this.ownSeatKey(ch);
       if (!key || key !== `${col},${row}`) return false;
     }
-    const path = this.withOwnSeatUnblocked(ch, () =>
+    const path = this.withSeatsUnblocked(this.collectUnblockKeys(ch, false), () =>
       findPath(ch.tileCol, ch.tileRow, col, row, this.tileMap, this.blockedTiles),
     );
     if (path.length === 0) return false;
@@ -558,13 +550,14 @@ export class OfficeState {
 
     ch.role = AgentRole.DROIDRUN;
 
-    // Find a seat in the robot workshop area (col 0-8, row 0-10)
-    const workshopBounds = { colMin: 0, colMax: 8, rowMin: 0, rowMax: 10 };
+    const bounds = ROOM_BOUNDS[RoomId.ROBOT_WORKSHOP];
+    const inBounds = (col: number, row: number): boolean =>
+      col >= bounds.colMin && col <= bounds.colMax &&
+      row >= bounds.rowMin && row <= bounds.rowMax;
+
     let bestSeatId: string | null = null;
     for (const [uid, seat] of this.seats) {
-      if (!seat.assigned &&
-        seat.seatCol >= workshopBounds.colMin && seat.seatCol <= workshopBounds.colMax &&
-        seat.seatRow >= workshopBounds.rowMin && seat.seatRow <= workshopBounds.rowMax) {
+      if (!seat.assigned && inBounds(seat.seatCol, seat.seatRow)) {
         bestSeatId = uid;
         break;
       }
@@ -584,10 +577,7 @@ export class OfficeState {
       ch.seatId = bestSeatId;
     } else {
       // No seat — walk to a walkable tile in the workshop
-      const workshopTiles = this.walkableTiles.filter(
-        (t) => t.col >= workshopBounds.colMin && t.col <= workshopBounds.colMax &&
-          t.row >= workshopBounds.rowMin && t.row <= workshopBounds.rowMax,
-      );
+      const workshopTiles = this.walkableTiles.filter((t) => inBounds(t.col, t.row));
       if (workshopTiles.length > 0) {
         const target = workshopTiles[Math.floor(Math.random() * workshopTiles.length)];
         ch.behaviorQueue.push({ tile: target, action: 'work' });
@@ -1216,7 +1206,7 @@ export class OfficeState {
       }
 
       // Temporarily unblock own seat + behavior queue targets so character can pathfind
-      this.withBehaviorSeatsUnblocked(ch, () =>
+      this.withSeatsUnblocked(this.collectUnblockKeys(ch, true), () =>
         updateCharacter(ch, dt, this.walkableTiles, this.seats, this.tileMap, this.blockedTiles),
       );
 
