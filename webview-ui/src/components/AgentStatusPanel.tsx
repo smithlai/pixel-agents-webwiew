@@ -16,6 +16,17 @@ const DEVICE_AGENT_ID_START = 200;
 
 /** Max history entries per agent */
 const MAX_HISTORY = 50;
+/** Max tracked dedup keys before pruning oldest */
+const SEEN_KEYS_MAX = 1000;
+
+/** Add a dedup key to a Set; if it grows past the cap, drop the oldest insertion. */
+function trackSeen(set: Set<string>, key: string): void {
+  set.add(key);
+  if (set.size > SEEN_KEYS_MAX) {
+    const oldest = set.values().next().value;
+    if (oldest !== undefined) set.delete(oldest);
+  }
+}
 /** Default visible lines before collapsing */
 const COLLAPSED_LINES = 4;
 
@@ -112,7 +123,7 @@ function useActivityHistory(
       for (const tool of tools) {
         const key = `${id}:${tool.toolId}:${tool.status}`;
         if (!seenToolsRef.current.has(key)) {
-          seenToolsRef.current.add(key);
+          trackSeen(seenToolsRef.current, key);
           const text = isSub
             ? (subagentCharacters.find((s) => s.id === id)?.label ?? 'Subtask')
             : tool.status;
@@ -130,7 +141,7 @@ function useActivityHistory(
       for (const entry of ch.speechLog) {
         const key = `${id}:${entry.timestamp}:${entry.text}`;
         if (!seenSpeechRef.current.has(key)) {
-          seenSpeechRef.current.add(key);
+          trackSeen(seenSpeechRef.current, key);
           history.push({ text: entry.text, timestamp: new Date(entry.timestamp) });
           if (history.length > MAX_HISTORY) {
             history.splice(0, history.length - MAX_HISTORY);
