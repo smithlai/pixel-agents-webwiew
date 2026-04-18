@@ -61,7 +61,8 @@ function getActivityText(
   agentTools: Record<number, ToolActivity[]>,
   isActive: boolean,
 ): string {
-  if (!isActive) return 'Idle';
+  // Standby state: badge alone is informative; suffix would be redundant.
+  if (!isActive) return '';
   const tools = agentTools[agentId];
   if (tools && tools.length > 0) {
     const activeTool = [...tools].reverse().find((t) => !t.done);
@@ -72,7 +73,9 @@ function getActivityText(
     const lastTool = tools[tools.length - 1];
     if (lastTool) return lastTool.status;
   }
-  return 'Idle';
+  // Active but no tool — LLM is between tool calls (planning next step,
+  // analyzing results, awaiting subagent return).
+  return 'Coordinating';
 }
 
 function getStatusInfo(
