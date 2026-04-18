@@ -85,6 +85,16 @@ function saveAgentSeats(os: OfficeState): void {
   vscode.postMessage({ type: 'saveAgentSeats', seats });
 }
 
+/** Returns a setter updater that drops a numeric key from a record map. No-op if absent. */
+function dropKey<V>(id: number) {
+  return (prev: Record<number, V>): Record<number, V> => {
+    if (!(id in prev)) return prev;
+    const next = { ...prev };
+    delete next[id];
+    return next;
+  };
+}
+
 export function useExtensionMessages(
   getOfficeState: () => OfficeState,
   onLayoutLoaded?: (layout: OfficeLayout) => void,
@@ -169,24 +179,9 @@ export function useExtensionMessages(
         const id = msg.id as number;
         setAgents((prev) => prev.filter((a) => a !== id));
         setSelectedAgent((prev) => (prev === id ? null : prev));
-        setAgentTools((prev) => {
-          if (!(id in prev)) return prev;
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        });
-        setAgentStatuses((prev) => {
-          if (!(id in prev)) return prev;
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        });
-        setSubagentTools((prev) => {
-          if (!(id in prev)) return prev;
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        });
+        setAgentTools(dropKey(id));
+        setAgentStatuses(dropKey(id));
+        setSubagentTools(dropKey(id));
         // Remove all sub-agent characters belonging to this agent
         os.removeAllSubagents(id);
         setSubagentCharacters((prev) => prev.filter((s) => s.parentAgentId !== id));
@@ -275,18 +270,8 @@ export function useExtensionMessages(
         });
       } else if (msg.type === 'agentToolsClear') {
         const id = msg.id as number;
-        setAgentTools((prev) => {
-          if (!(id in prev)) return prev;
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        });
-        setSubagentTools((prev) => {
-          if (!(id in prev)) return prev;
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        });
+        setAgentTools(dropKey(id));
+        setSubagentTools(dropKey(id));
         // Remove all sub-agent characters belonging to this agent
         os.removeAllSubagents(id);
         setSubagentCharacters((prev) => prev.filter((s) => s.parentAgentId !== id));
@@ -298,15 +283,11 @@ export function useExtensionMessages(
       } else if (msg.type === 'agentStatus') {
         const id = msg.id as number;
         const status = msg.status as string;
-        setAgentStatuses((prev) => {
-          if (status === 'active') {
-            if (!(id in prev)) return prev;
-            const next = { ...prev };
-            delete next[id];
-            return next;
-          }
-          return { ...prev, [id]: status };
-        });
+        if (status === 'active') {
+          setAgentStatuses(dropKey(id));
+        } else {
+          setAgentStatuses((prev) => ({ ...prev, [id]: status }));
+        }
         // DUT active state is driven by task-assigned / task-stopped only.
         const ch = os.characters.get(id);
         if (ch?.role !== 'dut') {
@@ -518,18 +499,8 @@ export function useExtensionMessages(
             os.removeAgent(ch.id);
             releaseTesterSeat(ch.id);
             setAgents((prev) => prev.filter((a) => a !== ch.id));
-            setAgentTools((prev) => {
-              if (!(ch.id in prev)) return prev;
-              const next = { ...prev };
-              delete next[ch.id];
-              return next;
-            });
-            setAgentStatuses((prev) => {
-              if (!(ch.id in prev)) return prev;
-              const next = { ...prev };
-              delete next[ch.id];
-              return next;
-            });
+            setAgentTools(dropKey(ch.id));
+            setAgentStatuses(dropKey(ch.id));
           }
         }
       } else if (msg.type === 'task-assigned') {
@@ -545,18 +516,8 @@ export function useExtensionMessages(
         // Remove sub-agents of this Tester
         os.removeAllSubagents(agentId);
         setSubagentCharacters((prev) => prev.filter((s) => s.parentAgentId !== agentId));
-        setAgentTools((prev) => {
-          if (!(agentId in prev)) return prev;
-          const next = { ...prev };
-          delete next[agentId];
-          return next;
-        });
-        setSubagentTools((prev) => {
-          if (!(agentId in prev)) return prev;
-          const next = { ...prev };
-          delete next[agentId];
-          return next;
-        });
+        setAgentTools(dropKey(agentId));
+        setSubagentTools(dropKey(agentId));
       } else if (msg.type === 'externalAssetDirectoriesUpdated') {
         if (Array.isArray(msg.dirs)) {
           setExternalAssetDirectories(msg.dirs as string[]);

@@ -42,7 +42,7 @@ export function isReadingTool(tool: string | null): boolean {
 }
 
 /** Pixel center of a tile */
-function tileCenter(col: number, row: number): { x: number; y: number } {
+export function tileCenter(col: number, row: number): { x: number; y: number } {
   return {
     x: col * TILE_SIZE + TILE_SIZE / 2,
     y: row * TILE_SIZE + TILE_SIZE / 2,

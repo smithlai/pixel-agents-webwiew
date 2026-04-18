@@ -35,7 +35,7 @@ import type {
 import { CharacterState, Direction, MATRIX_EFFECT_DURATION, TILE_SIZE } from '../types.js';
 import { AgentRole, DEFAULT_PROFILES, matchProfile, ROOM_BOUNDS, RoomId } from '../agentProfiles.js';
 import type { RoomBounds } from '../agentProfiles.js';
-import { createCharacter, updateCharacter } from './characters.js';
+import { createCharacter, tileCenter, updateCharacter } from './characters.js';
 import { matrixEffectSeeds } from './matrixEffect.js';
 
 export class OfficeState {
@@ -108,10 +108,9 @@ export class OfficeState {
           // Snap character to seat position
           ch.tileCol = seat.seatCol;
           ch.tileRow = seat.seatRow;
-          const cx = seat.seatCol * TILE_SIZE + TILE_SIZE / 2;
-          const cy = seat.seatRow * TILE_SIZE + TILE_SIZE / 2;
-          ch.x = cx;
-          ch.y = cy;
+          const center = tileCenter(seat.seatCol, seat.seatRow);
+          ch.x = center.x;
+          ch.y = center.y;
           ch.dir = seat.facingDir;
           continue;
         }
@@ -131,8 +130,9 @@ export class OfficeState {
         const seat = this.seats.get(seatId)!;
         ch.tileCol = seat.seatCol;
         ch.tileRow = seat.seatRow;
-        ch.x = seat.seatCol * TILE_SIZE + TILE_SIZE / 2;
-        ch.y = seat.seatRow * TILE_SIZE + TILE_SIZE / 2;
+        const center = tileCenter(seat.seatCol, seat.seatRow);
+        ch.x = center.x;
+        ch.y = center.y;
         ch.dir = seat.facingDir;
       }
     }
@@ -157,8 +157,9 @@ export class OfficeState {
     const spawn = this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)];
     ch.tileCol = spawn.col;
     ch.tileRow = spawn.row;
-    ch.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
-    ch.y = spawn.row * TILE_SIZE + TILE_SIZE / 2;
+    const center = tileCenter(spawn.col, spawn.row);
+    ch.x = center.x;
+    ch.y = center.y;
     ch.path = [];
     ch.moveProgress = 0;
   }
@@ -291,8 +292,9 @@ export class OfficeState {
     if (profile?.spawnTile) {
       // Fixed spawn position (no seat) — used by bunny NPCs
       ch = createCharacter(id, palette, null, null, hueShift);
-      ch.x = profile.spawnTile.col * TILE_SIZE + TILE_SIZE / 2;
-      ch.y = profile.spawnTile.row * TILE_SIZE + TILE_SIZE / 2;
+      const center = tileCenter(profile.spawnTile.col, profile.spawnTile.row);
+      ch.x = center.x;
+      ch.y = center.y;
       ch.tileCol = profile.spawnTile.col;
       ch.tileRow = profile.spawnTile.row;
     } else {
@@ -323,8 +325,9 @@ export class OfficeState {
             ? this.walkableTiles[Math.floor(Math.random() * this.walkableTiles.length)]
             : { col: 1, row: 1 };
         ch = createCharacter(id, palette, null, null, hueShift);
-        ch.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
-        ch.y = spawn.row * TILE_SIZE + TILE_SIZE / 2;
+        const center = tileCenter(spawn.col, spawn.row);
+        ch.x = center.x;
+        ch.y = center.y;
         ch.tileCol = spawn.col;
         ch.tileRow = spawn.row;
       }
@@ -527,8 +530,9 @@ export class OfficeState {
         spawn = closest;
       }
       ch = createCharacter(id, palette, null, null, hueShift);
-      ch.x = spawn.col * TILE_SIZE + TILE_SIZE / 2;
-      ch.y = spawn.row * TILE_SIZE + TILE_SIZE / 2;
+      const center = tileCenter(spawn.col, spawn.row);
+      ch.x = center.x;
+      ch.y = center.y;
       ch.tileCol = spawn.col;
       ch.tileRow = spawn.row;
     }
