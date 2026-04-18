@@ -25,16 +25,17 @@ WebSocket 自動連接 Goose 事件串流（`gooseSocket.ts`），fallback 到 m
 3. **Phase 3（待開發）**: AgentProfile 空間認知、行為系統、自訂角色 sprite、公開部署
 
 ## Backlog
-- **Goose watch 路徑可設定化**：目前 `vite.config.ts` 的 `gooseWatchDir` 硬編碼相對路徑 `../../MobileGoose/.runtime/sessions`，可透過 `GOOSE_WATCH_DIR` 環境變數覆蓋，但需要更好的設定方式（`.env`、UI 設定面板、或啟動時互動選擇）
 - **AgentProfile 資料結構**：定義 agent 與房間/座位的綁定關係（workSeat / restSeat / reportTo）
 - **空間行為系統**：擴展 FSM，實作事件觸發動線（接任務→匯報→工作→回報→休息）
 - **光柱 Spawn 特效**：搭配 matrixEffect.ts 擴展，用於 sub-agent spawn
-- **UI 完整中文化**：編輯器工具欄、設定面板等仍為英文
-- **光源系統定位 Bloom**：目前 `lightingPlugin` 以 glow 溢出為主（`AMBIENT_DARK_ALPHA=0.12`、小半徑低 intensity）；BFS 擋牆 + 南面受光已實作；參數與限制見 [docs/owner-todo.md §1.1](docs/owner-todo.md)。想做強光暈實驗室質感需走「素材自帶 glow sprite」而非程式渲染
-- **光源系統 L6 角色感應光（未來）**：螢幕 ON 時投射光到前方工作 agent 的臉（on top of character，`lighter` blend 小範圍加色）
-- **陰影 / 家具投影**：家具下方畫深色半透明橢圓影子；反光地板需跳過陰影（討論擱置方案甲）
-- **龍門吊素材與動畫**：特大家具 + ON/OFF 橫移動畫 + `backgroundTiles`；素材需求見 docs/owner-todo.md §1.2
-- **Colorize 模式統一**：地板 / 牆壁尊重 `color.colorize` 欄位（早期 revert 過，待重新討論設計）
+
+## 已棄案 / 已完成
+- ~~Goose watch 路徑可設定化~~ → 已用 `GOOSE_WATCH_DIR` env 變數實作
+- ~~UI 完整中文化~~ → 改方向為全英文化，已落地
+- ~~光源系統 L4-L6 / Bloom / 角色感應光~~ → 棄案（牆壁光照無解，且實驗室強光暈需素材自帶 glow sprite）
+- ~~陰影 / 家具投影~~ → 連帶光源棄案
+- ~~龍門吊 / 機械手臂素材~~ → 不做了
+- ~~Colorize 模式統一~~ → 上游原作者刻意分 colorize / adjust 兩模式，光源棄案後無統一動機，程式碼維持現狀
 
 ## GooseOffice 新增架構
 
