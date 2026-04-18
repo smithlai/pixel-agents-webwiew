@@ -221,28 +221,13 @@ export function updateCharacter(
         ch.frameTimer -= TYPE_FRAME_DURATION_SEC;
         ch.frame = (ch.frame + 1) % 2;
       }
-      // If active but has behavior queue (e.g. just assigned report → work), stand up
+      // If active but has behavior queue (e.g. just assigned report → work), stand up.
+      // setAgentActive() is the single source of truth for routing decisions —
+      // it pushes the work-seat step, so we just consume the queue here.
       if (ch.isActive && ch.behaviorQueue.length > 0) {
         ch.seatTimer = 0;
         processNextBehavior(ch, seats, tileMap, blockedTiles);
         break;
-      }
-      // If active but sitting at wrong seat (e.g. rest seat), walk to work seat
-      if (ch.isActive && ch.seatId) {
-        const seat = seats.get(ch.seatId);
-        if (seat && (ch.tileCol !== seat.seatCol || ch.tileRow !== seat.seatRow)) {
-          const path = findPath(
-            ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles,
-          );
-          if (path.length > 0) {
-            ch.path = path;
-            ch.moveProgress = 0;
-            ch.state = CharacterState.WALK;
-            ch.frame = 0;
-            ch.frameTimer = 0;
-            break;
-          }
-        }
       }
       // If no longer active, stand up and start idle/rest behavior
       if (!ch.isActive) {
