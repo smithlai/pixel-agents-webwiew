@@ -571,10 +571,13 @@ export class OfficeState {
     }
 
     if (bestSeatId) {
-      // Reassign seat to workshop — FSM will naturally walk there
+      // Reassign seat and route via behaviorQueue — same path as the
+      // no-seat branch below. Keeps a single source of truth for movement
+      // (TYPE state only consumes the queue, never polls seatId changes).
       const wSeat = this.seats.get(bestSeatId)!;
       wSeat.assigned = true;
       ch.seatId = bestSeatId;
+      ch.behaviorQueue.push({ seatId: bestSeatId, action: 'work' });
     } else {
       // No seat — walk to a walkable tile in the workshop
       const workshopTiles = this.walkableTiles.filter((t) => inBounds(t.col, t.row));
