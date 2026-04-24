@@ -126,8 +126,8 @@ export class SessionCleaner {
     const sessions: SessionFile[] = [];
 
     for (const filename of filenames) {
-      // Pattern: goose-events-dev-{SERIAL}-{uuid8}.jsonl
-      const match = filename.match(/^goose-events-dev-(.+)-([a-f0-9]{8})\.jsonl$/);
+      // goose-events-{SERIAL}-{uuid8}.jsonl
+      const match = filename.match(/^goose-events-(.+)-([a-f0-9]{8})\.jsonl$/);
       if (!match) continue;
 
       const [, serial, uuid8] = match;

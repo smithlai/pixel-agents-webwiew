@@ -278,14 +278,10 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
         onFileFound: (file) => {
           console.log(`[GoosePlugin] Detected JSONL: ${file}`);
 
-          // Extract serial from testrun in filename: goose-events-dev-{SERIAL}-{uuid8}.jsonl
+          // Extract serial from session ID in filename: goose-events-{SERIAL}-{uuid8}.jsonl
           // ⚠️  KEEP IN SYNC with MobileGoose/tools/goose-log-wrapper.py (main(), jsonl_path assignment).
-          // Filename produced by wrapper: `goose-events-{sanitize_testrun(testrun)}.jsonl`
-          // where testrun = "dev-{serial}-{uuid8}" passed via --testrun argument.
-          // 'dev' prefix = TESTRUN_PREFIX in deviceTypes.ts.
-          // If the wrapper changes its naming convention, update this regex and TESTRUN_PREFIX
-          // in the same cross-repo change.
-          const match = path.basename(file).match(/^goose-events-dev-(.+)-[a-f0-9]{8}\.jsonl$/);
+          // Filename = `goose-events-{session_id_safe}.jsonl` where session_id = "{serial}-{uuid8}".
+          const match = path.basename(file).match(/^goose-events-(.+)-[a-f0-9]{8}\.jsonl$/);
           if (match) {
             const serial = match[1];
             fileSerialMap.set(file, serial);
@@ -419,7 +415,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
               agentId: a.agentId,
               state: a.state,
               idleSince: a.idleSince,
-              task: a.task ? { command: a.task.command, testrun: a.task.testrun, startedAt: a.task.startedAt } : null,
+              task: a.task ? { command: a.task.command, testrun: a.task.testrun, sessionId: a.task.sessionId, startedAt: a.task.startedAt } : null,
             })),
           }),
         );
@@ -442,10 +438,12 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
           req.on('end', () => {
             let command = '';
             let serial: string | undefined;
+            let testrun: string | undefined;
             try {
-              const parsed = JSON.parse(body) as { command?: string; serial?: string };
+              const parsed = JSON.parse(body) as { command?: string; serial?: string; testrun?: string };
               command = parsed.command?.trim() ?? '';
               serial = parsed.serial?.trim() || undefined;
+              testrun = parsed.testrun?.trim() || undefined;
             } catch {
               res.statusCode = 400;
               res.setHeader('Content-Type', 'application/json');
@@ -485,7 +483,7 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             }
 
             // Assign task
-            const assignment = deviceManager.assignTask(command, serial);
+            const assignment = deviceManager.assignTask(command, serial, testrun);
             if (!assignment) {
               res.statusCode = 409;
               res.setHeader('Content-Type', 'application/json');
@@ -493,20 +491,20 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
               return;
             }
 
-            const { agent: assigned, testrun } = assignment;
-            console.log(`[GoosePlugin] Spawning MobileGoose: ${command} → ${assigned.serial} (agent ${assigned.agentId}, testrun ${testrun})`);
+            const { agent: assigned, testrun: resolvedTestrun, sessionId } = assignment;
+            console.log(`[GoosePlugin] Spawning MobileGoose: ${command} → ${assigned.serial} (agent ${assigned.agentId}, testrun ${resolvedTestrun}, session ${sessionId})`);
 
             // Placeholder heartbeat：派工的瞬間先 touch 檔案，消除「assign
             // → spawn → wrapper 啟動」之間約 3~5 秒的真空期（其間 heartbeat
             // watchdog 會誤判死亡）。wrapper 啟動後會 touch 同一個檔名（都
-            // 走 sanitize_testrun），自然接手更新。若 wrapper 從未啟動，
+            // 走 sanitize_testrun(session_id)），自然接手更新。若 wrapper 從未啟動，
             // mtime 不再前進，watchdog 會在 STALE_THRESHOLD 後正確釋放。
             try {
-              const hbPath = path.join(watchDir, heartbeatFilename(testrun));
+              const hbPath = path.join(watchDir, heartbeatFilename(sessionId));
               fs.mkdirSync(path.dirname(hbPath), { recursive: true });
               fs.writeFileSync(hbPath, `${Date.now()} (pixel-agents placeholder)`, 'utf8');
             } catch (err) {
-              console.warn(`[GoosePlugin] Failed to write placeholder heartbeat for ${testrun}:`, err);
+              console.warn(`[GoosePlugin] Failed to write placeholder heartbeat for ${sessionId}:`, err);
             }
 
             // Write command to a temp .cmd file to avoid quoting hell when
@@ -522,11 +520,17 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             // Instead, pass the command through a PowerShell environment variable
             // ($env:GOOSE_TASK_COMMAND) — PowerShell uses Unicode internally and
             // child processes inherit the env var correctly.
+            const batArgs = [
+              `run`,
+              `--testrun="${resolvedTestrun}"`,
+              `--session-id="${sessionId}"`,
+              `-t "%GOOSE_TASK_COMMAND%"`,
+            ];
             const script = [
               '@echo off',
               `cd /d "${resolvedGooseDir}"`,
               `set ANDROID_SERIAL=${assigned.serial}`,
-              `call "${batPath}" run --testrun="${testrun}" -t "%GOOSE_TASK_COMMAND%"`,
+              `call "${batPath}" ${batArgs.join(' ')}`,
               'del "%~f0"',
             ].join('\r\n');
             fs.writeFileSync(tmpCmd, script, 'utf8');
@@ -570,9 +574,9 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
               const pid = parseInt(psStdout.trim(), 10);
               if (Number.isFinite(pid) && pid > 0) {
                 const agent = deviceManager.getAgent(assigned.serial);
-                if (agent?.task?.testrun === testrun) {
+                if (agent?.task?.sessionId === sessionId) {
                   deviceManager.setTaskPid(assigned.serial, pid);
-                  console.log(`[GoosePlugin] Captured cmd PID ${pid} for testrun ${testrun}`);
+                  console.log(`[GoosePlugin] Captured cmd PID ${pid} for session ${sessionId}`);
                 }
               } else {
                 console.warn(`[GoosePlugin] Failed to parse spawned PID from stdout: "${psStdout.trim()}"`);
@@ -588,9 +592,9 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
             // session_end 事件接管，與 spawn 無關。
             setTimeout(() => {
               const agent = deviceManager.getAgent(assigned.serial);
-              if (agent?.task?.testrun === testrun && !agent.task.jsonlFile) {
+              if (agent?.task?.sessionId === sessionId && !agent.task.jsonlFile) {
                 console.warn(
-                  `[GoosePlugin] Spawn watchdog: no JSONL after 60s for ${assigned.serial} (testrun ${testrun}) — releasing device`,
+                  `[GoosePlugin] Spawn watchdog: no JSONL after 60s for ${assigned.serial} (session ${sessionId}) — releasing device`,
                 );
                 deviceManager.completeTask(assigned.serial, 'spawn-timeout');
                 broadcastRaw({
@@ -608,7 +612,8 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
               serial: assigned.serial,
               agentId: assigned.agentId,
               command,
-              testrun,
+              testrun: resolvedTestrun,
+              sessionId,
             });
 
             res.statusCode = 202;
@@ -618,7 +623,8 @@ export function goosePlugin(options: GoosePluginOptions): Plugin {
               command,
               serial: assigned.serial,
               agentId: assigned.agentId,
-              testrun,
+              testrun: resolvedTestrun,
+              sessionId,
             }));
           });
         });

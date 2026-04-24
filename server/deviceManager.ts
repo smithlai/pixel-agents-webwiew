@@ -15,7 +15,7 @@ import type {
   ActiveTask,
   DeviceAgent,
 } from './deviceTypes.ts';
-import { DEVICE_AGENT_ID_START, TESTRUN_PREFIX } from './deviceTypes.ts';
+import { DEVICE_AGENT_ID_START } from './deviceTypes.ts';
 import { EventTranslator } from './eventTranslator.ts';
 
 export type DeviceChangeCallback = (agents: DeviceAgent[], models: Map<string, string>) => void;
@@ -117,13 +117,17 @@ export class DeviceManager {
    * Assign a task to an idle Tester.
    * Returns assignment info or null if no idle Tester available.
    *
+   * Stage 2: testrun = plan-level name, sessionId = per-execution identifier.
+   *
    * @param command - The Boss command to execute
    * @param serial - Optional: target specific device
+   * @param testrun - Optional: plan-level testrun name (auto-generated if omitted)
    */
   assignTask(
     command: string,
     serial?: string,
-  ): { agent: DeviceAgent; testrun: string } | null {
+    testrun?: string,
+  ): { agent: DeviceAgent; testrun: string; sessionId: string } | null {
     let target: DeviceAgent | undefined;
 
     if (serial) {
@@ -144,12 +148,16 @@ export class DeviceManager {
     if (!target) return null;
 
     const uuid8 = crypto.randomUUID().slice(0, 8);
-    const testrun = `${TESTRUN_PREFIX}-${target.serial}-${uuid8}`;
+    // Stage 2: sessionId = {serial}-{uuid8} (unique per execution)
+    const sessionId = `${target.serial}-${uuid8}`;
+    // testrun = plan name (provided by caller) or auto-generated fallback
+    const resolvedTestrun = testrun || `pixel-${uuid8}`;
 
     const task: ActiveTask = {
       command,
       serial: target.serial,
-      testrun,
+      testrun: resolvedTestrun,
+      sessionId,
       pid: null,
       startedAt: Date.now(),
       jsonlFile: null,
@@ -159,7 +167,7 @@ export class DeviceManager {
     target.task = task;
     this.notifyChange();
 
-    return { agent: target, testrun };
+    return { agent: target, testrun: resolvedTestrun, sessionId };
   }
 
   /** Mark a task as complete and reset agent to idle */

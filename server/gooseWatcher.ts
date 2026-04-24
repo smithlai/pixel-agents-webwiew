@@ -178,21 +178,56 @@ export class GooseWatcher {
 
   /**
    * When the runtime JSONL disappears, try to drain remaining events from the
-   * archived copy MobileGoose writes to `test-reports/<testrun_safe>/` just
+   * archived copy MobileGoose writes to `test-reports/<testrun>/<task>/` just
    * before `os.remove()`. This closes the TOCTOU gap between the final
    * `session_end` write and the cleanup without requiring the writer to sleep.
+   *
+   * JSONL may be in a task subdirectory (e.g. test-reports/<testrun>/STTL-xxx/).
+   * Searches testrun root first, then task subdirectories.
    *
    * Returns true if the archive was found and drained (callers can rely on
    * session_end having been emitted via onEvent).
    */
+  private findArchivePath(base: string): string | null {
+    if (!this.archiveDir) return null;
+    // Extract session_id_safe from filename: goose-events-<session_id_safe>.jsonl
+    const m = base.match(/^goose-events-(.+)\.jsonl$/);
+    if (!m) return null;
+
+    // Search all testrun dirs → task subdirs for the matching JSONL archive.
+    // Archive structure: test-reports/<testrun>/<task>/goose-events-<session_id_safe>.jsonl
+    try {
+      const testruns = fs.readdirSync(this.archiveDir, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name);
+
+      for (const testrun of testruns) {
+        const testrunDir = path.join(this.archiveDir, testrun);
+        try {
+          const taskDirs = fs.readdirSync(testrunDir, { withFileTypes: true })
+            .filter(d => d.isDirectory())
+            .map(d => d.name);
+          for (const task of taskDirs) {
+            const taskPath = path.join(testrunDir, task, base);
+            try {
+              fs.statSync(taskPath);
+              return taskPath;
+            } catch { /* not here */ }
+          }
+        } catch { /* skip */ }
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
   private drainFromArchive(filePath: string, state: WatchedFile): boolean {
     if (!this.archiveDir) return false;
     const base = path.basename(filePath);
-    // goose-events-<testrun_safe>.jsonl
-    const m = base.match(/^goose-events-(.+)\.jsonl$/);
-    if (!m) return false;
-    const testrunSafe = m[1];
-    const archivePath = path.join(this.archiveDir, testrunSafe, base);
+
+    const archivePath = this.findArchivePath(base);
+    if (!archivePath) return false;
 
     let stat: fs.Stats;
     try {
@@ -226,7 +261,7 @@ export class GooseWatcher {
           console.warn(`[GooseWatcher] Archive malformed line: ${trimmed.slice(0, 120)}`);
         }
       }
-      console.log(`[GooseWatcher] Drained ${stat.size - state.offset}B from archive: ${testrunSafe}`);
+      console.log(`[GooseWatcher] Drained ${stat.size - state.offset}B from archive: ${archivePath}`);
       return true;
     } finally {
       fs.closeSync(fd);

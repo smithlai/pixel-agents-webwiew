@@ -12,18 +12,6 @@ export const DEVICE_AGENT_ID_START = 200;
 /** ADB polling interval in milliseconds */
 export const ADB_POLL_INTERVAL_MS = 5000;
 
-/** Testrun ID prefix for device-spawned sessions.
- *
- * ⚠️  KEEP IN SYNC — this prefix is embedded in 3 places:
- *   1. HERE (source of truth)
- *   2. server/viteGoosePlugin.ts — JSONL filename regex `goose-events-dev-`
- *   3. server/heartbeatWatchdog.ts — glob prefix `sanitizeTestrun("dev-{serial}-")`
- * The value is passed to MobileGoose/tools/goose-log-wrapper.py via `--testrun`,
- * so the wrapper itself doesn't hard-code it.
- * If you change this value, update sites 2 and 3 in the same commit.
- */
-export const TESTRUN_PREFIX = 'dev';
-
 // ── ADB Device ───────────────────────────────────────────────────────────────
 
 export type AdbDeviceStatus = 'device' | 'unauthorized' | 'offline';
@@ -45,6 +33,8 @@ export interface ActiveTask {
   command: string;
   serial: string;
   testrun: string;
+  /** Unique per-execution identifier: {serial}-{uuid8}. Used for JSONL filename and heartbeat. */
+  sessionId: string;
   pid: number | null;
   startedAt: number;
   jsonlFile: string | null;

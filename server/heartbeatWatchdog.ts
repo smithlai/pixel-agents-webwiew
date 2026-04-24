@@ -26,7 +26,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import type { DeviceManager } from './deviceManager.ts';
-import { TESTRUN_PREFIX } from './deviceTypes.ts';
 import { sanitizeTestrun } from './heartbeatPaths.ts';
 
 const POLL_INTERVAL_MS = 15_000;
@@ -86,13 +85,13 @@ export class HeartbeatWatchdog {
 
     // Build: serial → freshest heartbeat mtime (ms since epoch, or -Infinity
     // if no live heartbeat).  We use a prefix match against each agent's
-    // sanitized testrun prefix because the filename format is
-    // `<sanitize(dev-<serial>-<uuid8>)>.heartbeat`.
+    // serial because the filename format is `<sanitize({serial}-{uuid8})>.heartbeat`.
     const freshBySerial = new Map<string, number>();
     const agents = this.deviceManager.getAgents();
     const prefixes = agents.map((a) => ({
       serial: a.serial,
-      prefix: sanitizeTestrun(`${TESTRUN_PREFIX}-${a.serial}-`),
+      // heartbeat = {serial}-{uuid8}.heartbeat
+      prefix: sanitizeTestrun(`${a.serial}-`),
     }));
 
     for (const entry of entries) {
