@@ -150,8 +150,13 @@ export class DeviceManager {
     const uuid8 = crypto.randomUUID().slice(0, 8);
     // Stage 2: sessionId = {serial}-{uuid8} (unique per execution)
     const sessionId = `${target.serial}-${uuid8}`;
-    // testrun = plan name (provided by caller) or auto-generated fallback
-    const resolvedTestrun = testrun || `pixel-${uuid8}`;
+    // testrun = plan name (provided by caller) or auto-generated MMDD timestamp
+    const resolvedTestrun = testrun || (() => {
+      const n = new Date();
+      const mm = String(n.getMonth() + 1).padStart(2, '0');
+      const dd = String(n.getDate()).padStart(2, '0');
+      return `${mm}${dd}`;
+    })();
 
     const task: ActiveTask = {
       command,

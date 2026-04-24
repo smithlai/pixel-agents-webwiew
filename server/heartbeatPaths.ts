@@ -29,7 +29,7 @@ export function sanitizeTestrun(name: string): string {
   return safe.replace(/^_+|_+$/g, '');
 }
 
-/** Build the heartbeat filename for a given testrun. */
-export function heartbeatFilename(testrun: string): string {
-  return `${sanitizeTestrun(testrun)}.heartbeat`;
+/** Build the heartbeat filename for a given sessionId. */
+export function heartbeatFilename(sessionId: string): string {
+  return `${sanitizeTestrun(sessionId)}.heartbeat`;
 }
