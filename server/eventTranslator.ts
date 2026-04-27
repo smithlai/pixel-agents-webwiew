@@ -19,6 +19,15 @@
 
 import type { GooseEvent } from './gooseEvents.ts';
 
+/**
+ * Schema version this translator supports.
+ * Compare with session_start.schemaVersion from MobileGoose.
+ * Mismatch = console warning only (graceful degradation).
+ *
+ * ⚠️ KEEP IN SYNC with MobileGoose/tools/jsonl_emitter.py SCHEMA_VERSION
+ */
+const SUPPORTED_SCHEMA_VERSION = 1;
+
 /** A webview message ready to be dispatched via window.postMessage or WebSocket */
 export interface WebviewMessage {
   type: string;
@@ -51,6 +60,14 @@ export class EventTranslator {
 
     switch (event.type) {
       case 'session_start':
+        // Schema version check
+        if (event.schemaVersion != null && event.schemaVersion !== SUPPORTED_SCHEMA_VERSION) {
+          console.warn(
+            `[EventTranslator] schemaVersion mismatch: ` +
+            `MobileGoose=${event.schemaVersion}, pixel-agents=${SUPPORTED_SCHEMA_VERSION}. ` +
+            `Some events may not be handled correctly.`
+          );
+        }
         // Activate the agent
         messages.push({
           type: 'agentStatus',
@@ -159,6 +176,28 @@ export class EventTranslator {
 
       case 'droidrun_log':
         // Informational only, no webview action needed
+        break;
+
+      // ── Phase 1 events (log-only for now, UI in next iteration) ──────
+
+      case 'droidrun_detail':
+        console.log(`[EventTranslator] droidrun_detail: goal=${event.goal}, pkg=${event.finalPackage ?? '?'}`);
+        break;
+
+      case 'report_init':
+        console.log(`[EventTranslator] report_init: task=${event.task}`);
+        break;
+
+      case 'report_screenshot':
+        console.log(`[EventTranslator] report_screenshot: label=${event.label}`);
+        break;
+
+      case 'report_finalize':
+        console.log(`[EventTranslator] report_finalize`);
+        break;
+
+      case 'test_verdict':
+        console.log(`[EventTranslator] test_verdict: ${event.result}${event.reason ? ` — ${event.reason}` : ''}`);
         break;
 
       case 'session_end': {

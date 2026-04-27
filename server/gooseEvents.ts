@@ -15,7 +15,12 @@ export type GooseEvent =
   | DroidrunPlanEvent
   | DroidrunActionEvent
   | DroidrunResultEvent
+  | DroidrunDetailEvent
   | DroidrunLogEvent
+  | ReportInitEvent
+  | ReportScreenshotEvent
+  | ReportFinalizeEvent
+  | TestVerdictEvent
   | SessionEndEvent;
 
 export interface SessionStartEvent {
@@ -24,6 +29,7 @@ export interface SessionStartEvent {
   provider: string;
   model: string;
   testrun: string;
+  schemaVersion?: number;
 }
 
 export interface ToolStartEvent {
@@ -77,10 +83,48 @@ export interface DroidrunResultEvent {
   totalSteps: number;
 }
 
+export interface DroidrunDetailEvent {
+  type: 'droidrun_detail';
+  ts: string;
+  parentToolId: string;
+  goal: string;
+  finalPackage?: string;
+  finalActivity?: string;
+  visitedPackages?: string[];
+  agentNotes?: string;
+  finalScreen?: string;
+}
+
 export interface DroidrunLogEvent {
   type: 'droidrun_log';
   ts: string;
   path: string;
+}
+
+export interface ReportInitEvent {
+  type: 'report_init';
+  ts: string;
+  task: string;
+  reportBase: string;
+}
+
+export interface ReportScreenshotEvent {
+  type: 'report_screenshot';
+  ts: string;
+  label: string;
+  path: string;
+}
+
+export interface ReportFinalizeEvent {
+  type: 'report_finalize';
+  ts: string;
+}
+
+export interface TestVerdictEvent {
+  type: 'test_verdict';
+  ts: string;
+  result: 'PASS' | 'FAIL' | 'BLOCKED' | 'SKIP';
+  reason?: string;
 }
 
 export interface SessionEndEvent {
