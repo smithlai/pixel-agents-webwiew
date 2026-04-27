@@ -109,6 +109,8 @@ function useActivityHistory(
   const historyRef = useRef(new Map<number, HistoryEntry[]>());
   const seenToolsRef = useRef(new Set<string>());
   const seenSpeechRef = useRef(new Set<string>());
+  /** Maps `${agentId}:${toolId}` → HistoryEntry ref for in-place status updates. */
+  const toolEntryRef = useRef(new Map<string, HistoryEntry>());
 
   const allIds = [...agents, ...subagentCharacters.map((s) => s.id)];
 
@@ -126,15 +128,27 @@ function useActivityHistory(
 
     if (tools) {
       for (const tool of tools) {
-        const key = `${id}:${tool.toolId}:${tool.status}`;
-        if (!seenToolsRef.current.has(key)) {
-          trackSeen(seenToolsRef.current, key);
-          const text = isSub
-            ? (subagentCharacters.find((s) => s.id === id)?.label ?? 'Subtask')
-            : tool.status;
-          history.push({ text, timestamp: new Date() });
-          if (history.length > MAX_HISTORY) {
-            history.splice(0, history.length - MAX_HISTORY);
+        const text = isSub
+          ? (subagentCharacters.find((s) => s.id === id)?.label ?? 'Subtask')
+          : tool.status;
+        const toolKey = `${id}:${tool.toolId}`;
+        const prevEntry = toolEntryRef.current.get(toolKey);
+        if (prevEntry) {
+          // Same toolId seen before — update text in-place (tool_args status update)
+          if (prevEntry.text !== text) {
+            prevEntry.text = text;
+          }
+        } else {
+          // New tool — push to history
+          const key = `${id}:${tool.toolId}:${tool.status}`;
+          if (!seenToolsRef.current.has(key)) {
+            trackSeen(seenToolsRef.current, key);
+            const entry: HistoryEntry = { text, timestamp: new Date() };
+            history.push(entry);
+            toolEntryRef.current.set(toolKey, entry);
+            if (history.length > MAX_HISTORY) {
+              history.splice(0, history.length - MAX_HISTORY);
+            }
           }
         }
       }
