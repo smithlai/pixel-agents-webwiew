@@ -406,6 +406,11 @@ export function useExtensionMessages(
         setSubagentCharacters((prev) =>
           prev.filter((s) => !(s.parentAgentId === id && s.parentToolId === parentToolId)),
         );
+      } else if (msg.type === 'testNotify') {
+        // Phase 1 test events — show as notify bubble (top priority, recorded in speechLog)
+        const id = msg.id as number;
+        const text = msg.text as string;
+        os.showNotifyBubble(id, text);
       } else if (msg.type === 'characterSpritesLoaded') {
         const characters = msg.characters as Array<{
           down: string[][][];

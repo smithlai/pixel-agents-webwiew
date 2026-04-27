@@ -178,27 +178,50 @@ export class EventTranslator {
         // Informational only, no webview action needed
         break;
 
-      // ── Phase 1 events (log-only for now, UI in next iteration) ──────
+      // ── Phase 1 events → testNotify bubbles ────────────────────────
 
       case 'droidrun_detail':
-        console.log(`[EventTranslator] droidrun_detail: goal=${event.goal}, pkg=${event.finalPackage ?? '?'}`);
+        messages.push({
+          type: 'testNotify',
+          id: this.agentId,
+          text: `🔍 ${event.goal} → ${event.finalPackage ?? '?'}`,
+        });
         break;
 
       case 'report_init':
-        console.log(`[EventTranslator] report_init: task=${event.task}`);
+        messages.push({
+          type: 'testNotify',
+          id: this.agentId,
+          text: `📋 Testing: ${event.task}`,
+        });
         break;
 
       case 'report_screenshot':
-        console.log(`[EventTranslator] report_screenshot: label=${event.label}`);
+        messages.push({
+          type: 'testNotify',
+          id: this.agentId,
+          text: `📸 Screenshot: ${event.label}`,
+        });
         break;
 
       case 'report_finalize':
-        console.log(`[EventTranslator] report_finalize`);
+        messages.push({
+          type: 'testNotify',
+          id: this.agentId,
+          text: '📦 Test finalized',
+        });
         break;
 
-      case 'test_verdict':
-        console.log(`[EventTranslator] test_verdict: ${event.result}${event.reason ? ` — ${event.reason}` : ''}`);
+      case 'test_verdict': {
+        const icon = event.result === 'PASS' ? '✅' : event.result === 'FAIL' ? '❌' : '⚠️';
+        const detail = event.reason ? ` — ${event.reason}` : '';
+        messages.push({
+          type: 'testNotify',
+          id: this.agentId,
+          text: `${icon} ${event.result}${detail}`,
+        });
         break;
+      }
 
       case 'session_end': {
         // Clear any lingering DroidRun sub-agents first — if Goose ended
