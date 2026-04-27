@@ -30,6 +30,7 @@ export interface SessionStartEvent {
   model: string;
   testrun: string;
   schemaVersion?: number;
+  deviceSerial?: string;
 }
 
 export interface ToolStartEvent {
@@ -131,4 +132,6 @@ export interface SessionEndEvent {
   type: 'session_end';
   ts: string;
   reason: 'completed';
+  durationMs?: number;
+  task?: string;
 }
