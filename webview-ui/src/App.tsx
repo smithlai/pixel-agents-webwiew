@@ -162,6 +162,7 @@ function App() {
     alwaysShowLabels,
     hooksEnabled,
     setHooksEnabled,
+    speechVersion,
   } = useExtensionMessages(getOfficeState, editor.setLastSavedLayout, isEditDirty);
 
   // Show migration notice once layout reset is detected
@@ -587,6 +588,7 @@ function App() {
         agentTools={agentTools}
         subagentCharacters={subagentCharacters}
         deviceInfo={deviceInfo}
+        speechVersion={speechVersion}
       />
     )}
     </div>

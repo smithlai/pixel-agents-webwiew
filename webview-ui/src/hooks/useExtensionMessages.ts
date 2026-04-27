@@ -74,6 +74,8 @@ export interface ExtensionMessageState {
   hooksEnabled: boolean;
   setHooksEnabled: (v: boolean) => void;
   hooksInfoShown: boolean;
+  /** Incremented on testNotify to trigger panel re-render for speechLog. */
+  speechVersion: number;
 }
 
 function saveAgentSeats(os: OfficeState): void {
@@ -122,6 +124,7 @@ export function useExtensionMessages(
   const [hooksEnabled, setHooksEnabled] = useState(true);
   const [hooksInfoShown, setHooksInfoShown] = useState(true);
   const [alwaysShowLabels, setAlwaysShowLabels] = useState(false);
+  const [speechVersion, setSpeechVersion] = useState(0);
 
   // Track whether initial layout has been loaded (ref to avoid re-render)
   const layoutReadyRef = useRef(false);
@@ -411,6 +414,7 @@ export function useExtensionMessages(
         const id = msg.id as number;
         const text = msg.text as string;
         os.showNotifyBubble(id, text);
+        setSpeechVersion(v => v + 1);  // trigger panel re-render
       } else if (msg.type === 'characterSpritesLoaded') {
         const characters = msg.characters as Array<{
           down: string[][][];
@@ -567,5 +571,6 @@ export function useExtensionMessages(
     hooksEnabled,
     setHooksEnabled,
     hooksInfoShown,
+    speechVersion,
   };
 }

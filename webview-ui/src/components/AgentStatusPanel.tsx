@@ -48,6 +48,8 @@ interface AgentStatusPanelProps {
   agentTools: Record<number, ToolActivity[]>;
   subagentCharacters: SubagentCharacter[];
   deviceInfo: Record<number, DeviceInfo>;
+  /** Incremented on testNotify to trigger re-render so speechLog is picked up. */
+  speechVersion: number;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -365,6 +367,7 @@ export function AgentStatusPanel({
   agentTools,
   subagentCharacters,
   deviceInfo,
+  speechVersion,
 }: AgentStatusPanelProps) {
   const visibleAgents = agents.filter((id) => {
     const ch = officeState.characters.get(id);
